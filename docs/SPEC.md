@@ -1,0 +1,140 @@
+# Spécification
+
+## But
+
+Ébauche jouable de « La Roue de la Fortune » pour des repas de famille.
+On teste en vrai, puis on améliore. Priorité : simple, fiable, code propre.
+
+## Matériel et usage
+
+- La TV affiche le jeu via le navigateur Silk du Fire TV Stick, en plein écran 16:9.
+- Un seul téléphone sert de manette. On le passe à l'équipe dont c'est le tour.
+- Les deux appareils sont sur le même Wi-Fi.
+- Sur la TV, la seule interaction est un appui sur OK pour activer le son.
+
+## Connexion
+
+1. La TV ouvre `?mode=tv`. Elle génère un code de 4 lettres (sans lettres ambiguës comme I ou O).
+2. Elle affiche ce code en grand, plus un QR code vers `?mode=manette&code=XXXX`.
+3. Le téléphone scanne le QR code et se connecte tout seul.
+4. Secours : ouvrir `?mode=manette` et taper le code.
+5. Le téléphone garde le code en mémoire et se reconnecte seul après une coupure.
+6. La TV garde le code et la partie en mémoire. Un rechargement ne perd rien.
+7. Si le code est déjà pris sur le serveur PeerJS, réessayer puis générer un nouveau code.
+8. États de connexion visibles des deux côtés : en attente, connecté, déconnecté, erreur.
+
+Note : la mise en relation passe par le serveur public gratuit de PeerJS. Ensuite, les échanges sont directs.
+
+## Règles du jeu
+
+Équipes
+
+- 2 à 4 équipes, noms saisis sur le téléphone (noms par défaut : « Équipe 1 », …).
+- Chaque équipe a un score de manche et un total.
+
+Roue (24 cases, dans `game/config.ts`)
+
+- `300, 500, BANQUEROUTE, 200, 800, 400, 600, PASSE, 250, 700, 350, 900, BANQUEROUTE, 150, 450, 550, 200, 1000, 300, PASSE, 650, 400, 500, 750`
+
+Tour de jeu, l'équipe active peut :
+
+- Tourner la roue, puis proposer une consonne.
+- Acheter une voyelle (250 €), si son score de manche le permet.
+- Proposer la solution.
+
+Consonne
+
+- Consonnes : B C D F G H J K L M N P Q R S T V W X Z.
+- Présente : gain = valeur de la case × nombre d'occurrences. L'équipe rejoue.
+- Absente : la main passe à l'équipe suivante.
+
+Voyelle
+
+- Voyelles : A E I O U Y. Coût : 250 €, payé même si la voyelle est absente.
+- Présente : l'équipe rejoue. Absente : la main passe.
+
+Cases spéciales
+
+- BANQUEROUTE : score de manche de l'équipe à 0, la main passe.
+- PASSE : la main passe.
+
+Lettres
+
+- Une lettre déjà proposée ne peut plus l'être (grisée sur le téléphone).
+- Plus aucune consonne cachée dans la phrase : message « Il n'y a plus de consonnes » sur la TV et le téléphone, bouton de la roue grisé.
+- Plus aucune voyelle cachée : message « Il n'y a plus de voyelles » sur la TV et le téléphone, bouton d'achat grisé.
+
+Solution
+
+- Tapée sur le téléphone.
+- Comparaison sans accents, sans casse, sans espaces ni ponctuation.
+- Bonne réponse : phrase révélée, l'équipe gagne la manche.
+- Mauvaise réponse : la réponse proposée s'affiche sur la TV, la main passe.
+
+Fin de manche
+
+- Seule l'équipe gagnante ajoute son score de manche à son total.
+- Les scores de manche repartent à 0.
+- La manche suivante commence avec l'équipe suivante (rotation).
+
+Fin de partie
+
+- Quand l'utilisateur le décide, depuis le téléphone, en fin de manche.
+- Classement final sur la TV. Bouton « Nouvelle partie » sur le téléphone.
+
+Phrases
+
+- Liste intégrée d'environ 40 phrases en français, chacune avec un thème (Expression, Proverbe, Film, Cuisine, Lieu, Objet…).
+- Pas de répétition dans une partie. Si la liste est épuisée, on repart de zéro.
+- Normalisation : majuscules, accents retirés (É → E), ligatures dépliées (Œ → OE).
+- Apostrophes, tirets et ponctuation sont affichés d'office, jamais cachés.
+
+## Écran TV
+
+- Panneau de lettres façon jeu télé : 14 cases par ligne, retour à la ligne par mot.
+- Thème au-dessus du panneau.
+- Roue animée (environ 5 s), avec un pointeur fixe en haut et un « tic » à chaque case.
+- Scores des équipes, équipe active mise en avant.
+- Bandeau de message (lettre trouvée, banqueroute, plus de consonnes…).
+- Lettres déjà proposées visibles.
+- Révélation des lettres une par une, avec un son.
+- Sons simples générés en Web Audio (pas de fichiers audio).
+- Lisible de loin : grands caractères, forts contrastes.
+
+## Manette (téléphone)
+
+- Affiche : manche, équipe active, son score, message en cours.
+- Configuration : nombre d'équipes, noms, bouton « Commencer ».
+- Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
+- Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
+- Saisie de la solution avec « Valider » et « Annuler ».
+- Fin de manche : « Manche suivante » ou « Terminer la partie ».
+- Boutons grisés pendant que la roue tourne.
+- Gros boutons, utilisable d'une main.
+
+## Protocole
+
+- Téléphone → TV : `{ v: 1, type: "action", action }`.
+- TV → téléphone : `{ v: 1, type: "state", view }`. La `view` ne contient jamais la solution.
+- Tous les messages sont validés avec zod à la réception.
+- Version différente : message ignoré et erreur affichée (« Mets à jour la page »).
+
+## Hors périmètre (pour l'instant)
+
+- Plusieurs téléphones en même temps
+- Phrases personnalisées
+- Manche « super cagnotte », cases spéciales avancées, minuteur
+- Mode hors ligne sans serveur PeerJS
+
+## Phases
+
+0. Mise en place : Vite + TypeScript strict, ESLint, Prettier, Vitest, scripts npm, `git init`.
+1. Test du Fire TV Stick (prioritaire) : page minimale TV + manette avec PeerJS, un ping-pong de messages et un son. Workflow GitHub Actions vers GitHub Pages. L'utilisateur teste sur le vrai Fire Stick. On ne continue pas tant que ce n'est pas validé.
+2. Cœur du jeu : `game/` (config, phrases, reducer, events) et `shared/` (normalisation), avec tests.
+3. Protocole et réseau : `protocol/` (schémas zod, tests) et `net/` (code de salle, reconnexion).
+4. Vue TV.
+5. Vue manette.
+6. Sauvegarde et reprise (TV et téléphone).
+7. Finitions : sons, animations, messages d'erreur, CI complète (check + audit avant déploiement).
+
+Chaque phase se termine par `npm run check` au vert, un résumé, la validation de l'utilisateur, puis un commit.
