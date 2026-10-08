@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { MAX_TEAM_NAME_LENGTH, MAX_TEAMS, MIN_TEAMS } from '../game/config';
 import { THEMES } from '../game/phrases';
 import type { GameState } from '../game/state';
@@ -7,18 +7,17 @@ const GAME_KEY = 'rdlf.game';
 /** Bump when the saved shape changes: older saves are then dropped instead of misread. */
 const SAVE_VERSION = 1;
 
-const count = z.number().int().min(0);
+const count = z.int().check(z.minimum(0));
 
 const teamsSchema = z
   .array(
     z.object({
-      name: z.string().max(MAX_TEAM_NAME_LENGTH),
-      roundScore: z.number().int(),
-      totalScore: z.number().int(),
+      name: z.string().check(z.maxLength(MAX_TEAM_NAME_LENGTH)),
+      roundScore: z.int(),
+      totalScore: z.int(),
     }),
   )
-  .min(MIN_TEAMS)
-  .max(MAX_TEAMS);
+  .check(z.minLength(MIN_TEAMS), z.maxLength(MAX_TEAMS));
 
 const stepSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('choosing') }),
@@ -30,11 +29,14 @@ const stepSchema = z.discriminatedUnion('kind', [
 
 const gameDataShape = {
   teams: teamsSchema,
-  roundNumber: z.number().int().min(1),
+  roundNumber: z.int().check(z.minimum(1)),
   usedPhraseIndexes: z.array(count),
   round: z.object({
-    phrase: z.object({ text: z.string().min(1).max(200), theme: z.enum(THEMES) }),
-    guessedLetters: z.array(z.string().length(1)).max(26),
+    phrase: z.object({
+      text: z.string().check(z.minLength(1), z.maxLength(200)),
+      theme: z.enum(THEMES),
+    }),
+    guessedLetters: z.array(z.string().check(z.length(1))).check(z.maxLength(26)),
     activeTeam: count,
     startingTeam: count,
   }),
@@ -49,14 +51,14 @@ function teamsInRange(state: {
   );
 }
 
-const gameStateSchema: z.ZodType<GameState> = z.union([
+const gameStateSchema: z.ZodMiniType<GameState> = z.union([
   z.object({ phase: z.literal('setup') }),
   z
     .object({ phase: z.literal('playing'), step: stepSchema, ...gameDataShape })
-    .refine(teamsInRange),
+    .check(z.refine(teamsInRange)),
   z
     .object({ phase: z.literal('roundOver'), winner: count, ...gameDataShape })
-    .refine((state) => teamsInRange(state) && state.winner < state.teams.length),
+    .check(z.refine((state) => teamsInRange(state) && state.winner < state.teams.length)),
   z.object({ phase: z.literal('gameOver'), teams: teamsSchema }),
 ]);
 

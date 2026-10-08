@@ -16,13 +16,14 @@ Spécification complète : @docs/SPEC.md
 - `npm run typecheck` : vérification TypeScript
 - `npm run lint` : ESLint
 - `npm run format` : Prettier
+- `npm run format:check` : vérification Prettier (lancée par la CI)
 - `npm test` : Vitest
 - `npm run check` : typecheck + lint + tests (à lancer avant chaque commit)
 
 ## Stack
 
 - TypeScript strict, Vite, aucun framework UI
-- PeerJS pour la connexion, `zod` pour valider les messages reçus
+- PeerJS pour la connexion, `zod` (import `zod/mini`, plus léger) pour valider les messages reçus
 - Vitest pour les tests, ESLint + Prettier pour le style
 - Cible navigateur : ES2020 (le Fire TV Stick n'a pas un navigateur récent)
 - Dépendances à versions fixes (pas de `^` ni `~`). Toute nouvelle dépendance doit être justifiée et validée par l'utilisateur.

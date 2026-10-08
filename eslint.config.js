@@ -57,7 +57,7 @@ export default tseslint.config(
     files: ['src/protocol/**/*.ts'],
     rules: restrictImports([
       { regex: '^[.][.]/(?!game/)', message: 'protocol/ may only depend on game/.' },
-      { regex: '^(?!(zod|vitest)$)[^.]', message: 'protocol/ may only use zod.' },
+      { regex: '^(?!(zod/mini|vitest)$)[^.]', message: 'protocol/ may only use zod/mini.' },
     ]),
   },
   {

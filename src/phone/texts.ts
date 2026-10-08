@@ -13,6 +13,7 @@ export const PHONE_TEXTS = {
   changeCode: 'Changer de code',
   codeNotRemembered: 'Code non mémorisé sur ce téléphone : garde le lien ou le QR code.',
   updatePage: 'La TV a une autre version : mets à jour la page.',
+  offline: 'Pas de connexion Internet : vérifie le Wi-Fi du téléphone.',
   euros,
   setupTitle: 'Nouvelle partie',
   teamCount: "Nombre d'équipes",

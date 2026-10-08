@@ -12,6 +12,7 @@ import {
 } from '../protocol/messages';
 import type { PublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
+import { watchOnline } from '../shared/network';
 import { clearRoomCode, loadRoomCode, saveRoomCode } from '../storage/room-code-store';
 import { describeScreen } from './controls';
 import { readCodeFromUrl, writeCodeToUrl } from './room-url';
@@ -93,6 +94,7 @@ function showController(root: HTMLElement, code: string): void {
   let status: ConnectionStatus = { kind: 'waiting' };
   let message: BannerMessage | null = null;
   let versionError = false;
+  let online = true;
   let pending = false;
   let pendingTimer: ReturnType<typeof setTimeout> | undefined;
   let confirming: ConfirmableAction | null = null;
@@ -150,8 +152,9 @@ function showController(root: HTMLElement, code: string): void {
   }
 
   function render(): void {
-    statusElement.textContent = versionError ? texts.updatePage : statusLabel(status);
-    statusElement.dataset['kind'] = versionError ? 'error' : status.kind;
+    const problem = !online ? texts.offline : versionError ? texts.updatePage : null;
+    statusElement.textContent = problem ?? statusLabel(status);
+    statusElement.dataset['kind'] = problem === null ? status.kind : 'error';
     messageElement.textContent = message?.text ?? '';
     messageElement.classList.toggle('error', message?.isError ?? false);
     if (view === null) return;
@@ -197,6 +200,10 @@ function showController(root: HTMLElement, code: string): void {
     showCodeForm(root);
   });
 
+  watchOnline((isOnline) => {
+    online = isOnline;
+    render();
+  });
   root.replaceChildren(
     createElement('main', { className: 'controller' }, [
       createElement('div', { className: 'room', text: texts.room(code) }),

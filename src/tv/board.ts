@@ -39,10 +39,11 @@ export function createBoard(): Board {
   let tiles: Tile[] = [];
   let currentPhrase: string | null = null;
 
-  function showTile(tile: Tile): void {
+  function showTile(tile: Tile, animate = false): void {
     tile.revealed = true;
     tile.element.textContent = tile.char;
     tile.element.classList.add('revealed');
+    if (animate) tile.element.classList.add('flip');
   }
 
   function setPhrase(text: string, revealedLetters: readonly string[]): void {
@@ -68,7 +69,7 @@ export function createBoard(): Board {
       tile.element.classList.add('lit');
       await wait(REVEAL_INTERVAL_MS);
       tile.element.classList.remove('lit');
-      showTile(tile);
+      showTile(tile, true);
       onEachTile();
     }
   }
@@ -79,7 +80,7 @@ export function createBoard(): Board {
     phrase: () => currentPhrase,
     reveal,
     revealAll: () => {
-      tiles.filter((tile) => !tile.revealed).forEach(showTile);
+      for (const tile of tiles) if (!tile.revealed) showTile(tile, true);
     },
   };
 }

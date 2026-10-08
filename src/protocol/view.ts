@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { MAX_TEAM_NAME_LENGTH, MAX_TEAMS } from '../game/config';
 import type { GameEvent } from '../game/events';
 import { rankTeams } from '../game/ranking';
@@ -8,11 +8,11 @@ import type { GameState, PlayingState, RoundOverState, Team } from '../game/stat
 const MAX_EVENTS = 20;
 const MAX_LETTERS = 26;
 
-const index = z.number().int().min(0);
-const amount = z.number().int();
-const letter = z.string().length(1);
+const index = z.int().check(z.minimum(0));
+const amount = z.int();
+const letter = z.string().check(z.length(1));
 
-const gameEventSchema: z.ZodType<GameEvent> = z.discriminatedUnion('type', [
+const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('roundStarted'), roundNumber: index }),
   z.object({ type: z.literal('wheelSpun'), segmentIndex: index }),
   z.object({ type: z.literal('bankrupt'), team: index }),
@@ -48,25 +48,27 @@ export const publicViewSchema = z.object({
   teams: z
     .array(
       z.object({
-        name: z.string().max(MAX_TEAM_NAME_LENGTH),
+        name: z.string().check(z.maxLength(MAX_TEAM_NAME_LENGTH)),
         roundScore: amount,
         totalScore: amount,
       }),
     )
-    .max(MAX_TEAMS),
-  activeTeam: index.nullable(),
-  step: z
-    .enum(['choosing', 'spinning', 'guessingConsonant', 'guessingVowel', 'solving'])
-    .nullable(),
-  consonantValue: amount.nullable(),
-  guessedLetters: z.array(letter).max(MAX_LETTERS),
+    .check(z.maxLength(MAX_TEAMS)),
+  activeTeam: z.nullable(index),
+  step: z.nullable(
+    z.enum(['choosing', 'spinning', 'guessingConsonant', 'guessingVowel', 'solving']),
+  ),
+  consonantValue: z.nullable(amount),
+  guessedLetters: z.array(letter).check(z.maxLength(MAX_LETTERS)),
   canSpin: z.boolean(),
   canBuyVowel: z.boolean(),
   noMoreConsonants: z.boolean(),
   noMoreVowels: z.boolean(),
-  winner: index.nullable(),
-  ranking: z.array(z.object({ team: index, rank: z.number().int().min(1) })).max(MAX_TEAMS),
-  lastEvents: z.array(gameEventSchema).max(MAX_EVENTS),
+  winner: z.nullable(index),
+  ranking: z
+    .array(z.object({ team: index, rank: z.int().check(z.minimum(1)) }))
+    .check(z.maxLength(MAX_TEAMS)),
+  lastEvents: z.array(gameEventSchema).check(z.maxLength(MAX_EVENTS)),
 });
 
 export type PublicView = z.infer<typeof publicViewSchema>;

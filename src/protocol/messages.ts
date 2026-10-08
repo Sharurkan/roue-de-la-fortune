@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { phoneActionSchema, type PhoneAction } from './actions';
 import { publicViewSchema, type PublicView } from './view';
 
@@ -39,7 +39,7 @@ export function stateMessage(view: PublicView): TvMessage {
 
 const envelopeSchema = z.object({ v: z.number() });
 
-function parseWith<T>(schema: z.ZodType<T>, data: unknown): ParseResult<T> {
+function parseWith<T>(schema: z.ZodMiniType<T>, data: unknown): ParseResult<T> {
   const result = schema.safeParse(data);
   if (result.success) return { ok: true, message: result.data };
   const envelope = envelopeSchema.safeParse(data);

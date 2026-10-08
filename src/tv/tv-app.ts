@@ -16,10 +16,12 @@ import {
 } from '../protocol/messages';
 import { toPublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
+import { watchOnline } from '../shared/network';
 import { loadGame, saveGame } from '../storage/game-store';
 import { loadRoomCode, saveRoomCode } from '../storage/room-code-store';
 import { createGameScreen, createRankingScreen, createSetupScreen } from './screens';
 import { createSound, type Sound } from './sound';
+import { keepScreenOn } from './wake-lock';
 import { eventMessage, statusLabel, TV_TEXTS } from './texts';
 
 const GAME_DEPS: GameDeps = { random: Math.random, phrases: PHRASES };
@@ -68,7 +70,7 @@ export function startTv(root: HTMLElement): void {
   const final = createRankingScreen();
   const corner = createElement('div', { className: 'corner' });
 
-  const warnings = { room: '', game: '', controller: '' };
+  const warnings = { offline: '', room: '', game: '', controller: '' };
   const saved = loadGame();
   if (saved.kind === 'unreadable') warnings.game = TV_TEXTS.saveUnreadable;
   let state: GameState = saved.kind === 'loaded' ? saved.state : INITIAL_STATE;
@@ -118,6 +120,10 @@ export function startTv(root: HTMLElement): void {
         return;
       case 'bankrupt':
         sound?.bankrupt();
+        game.flash();
+        return;
+      case 'roundStarted':
+        sound?.roundStart();
         return;
       case 'roundWon':
         game.board.revealAll();
@@ -180,6 +186,11 @@ export function startTv(root: HTMLElement): void {
   });
 
   setupSound(sound, updateCorner);
+  keepScreenOn();
+  watchOnline((online) => {
+    warnings.offline = online ? '' : TV_TEXTS.offline;
+    updateCorner();
+  });
   root.replaceChildren(
     createElement('main', { className: 'game-tv' }, [
       setup.element,

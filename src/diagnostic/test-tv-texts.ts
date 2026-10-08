@@ -19,6 +19,7 @@ export const TV_TEXTS = {
     userAgent: 'User agent',
     webRtc: 'WebRTC (canal de données)',
     webAudio: 'Web Audio',
+    wakeLock: 'Écran maintenu allumé (Wake Lock)',
     storage: 'Sauvegarde locale',
     screen: 'Écran',
   },

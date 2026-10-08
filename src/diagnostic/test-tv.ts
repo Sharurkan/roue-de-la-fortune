@@ -6,6 +6,7 @@ import { getWebRtcSupport } from '../net/support';
 import { createElement } from '../shared/dom';
 import { loadRoomCode, saveRoomCode } from '../storage/room-code-store';
 import { createSound } from '../tv/sound';
+import { isWakeLockSupported } from '../tv/wake-lock';
 import { statusLabel, TV_TEXTS } from './test-tv-texts';
 
 // Separate from the game TV, so that both pages can be open without fighting over one code.
@@ -113,6 +114,7 @@ export function startTestTv(root: HTMLElement): void {
         diagnosticRow(texts.diagnostics.browser, support.browser),
         diagnosticRow(texts.diagnostics.webRtc, yesNo(support.dataChannel)),
         diagnosticRow(texts.diagnostics.webAudio, yesNo(sound !== null)),
+        diagnosticRow(texts.diagnostics.wakeLock, yesNo(isWakeLockSupported())),
         diagnosticRow(texts.diagnostics.storage, yesNo(saveRoomCode(code, TEST_ROOM_CODE_KEY))),
         diagnosticRow(
           texts.diagnostics.screen,

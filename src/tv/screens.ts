@@ -58,7 +58,16 @@ export interface GameScreen {
   board: Board;
   wheel: Wheel;
   showMessage(text: string): void;
+  /** Brief red flash of the whole screen. */
+  flash(): void;
   render(state: PlayingState | RoundOverState): void;
+}
+
+/** Plays a CSS animation again, even if the class is already there. */
+function restartAnimation(element: HTMLElement, className: string): void {
+  element.classList.remove(className);
+  element.getBoundingClientRect(); // Forces a layout, so that the browser sees the class as new.
+  element.classList.add(className);
 }
 
 function renderTeams(container: HTMLElement, teams: readonly Team[], active: number | null): void {
@@ -100,6 +109,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     if (board.phrase() !== round.phrase.text)
       board.setPhrase(round.phrase.text, round.guessedLetters);
     if (state.phase === 'roundOver') board.revealAll();
+    board.element.classList.toggle('won', state.phase === 'roundOver');
     renderTeams(teams, state.teams, state.phase === 'playing' ? round.activeTeam : state.winner);
     const used = round.guessedLetters.join(' ');
     letters.textContent = `${TV_TEXTS.usedLetters} : ${used === '' ? TV_TEXTS.noUsedLetters : used}`;
@@ -112,6 +122,10 @@ export function createGameScreen(onTick: () => void): GameScreen {
     wheel,
     showMessage: (text) => {
       banner.textContent = text;
+      restartAnimation(banner, 'appear');
+    },
+    flash: () => {
+      restartAnimation(element, 'flash');
     },
     render,
   };
