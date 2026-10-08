@@ -31,13 +31,13 @@ Spécification complète : @docs/SPEC.md
 
 ```
 src/
-  game/      Règles du jeu pures : état, actions, reducer, config, phrases
+  game/      Règles du jeu pures : état, actions, reducer, config, phrases, normalisation de texte
   protocol/  Types et schémas zod des messages TV ↔ téléphone (versionnés)
   net/       Connexion PeerJS : code de salle, envoi, réception, reconnexion
   storage/   Sauvegarde locale (localStorage), avec gestion d'erreurs
   tv/        Vue TV : roue, panneau de lettres, scores, sons, QR code
   phone/     Vue manette : boutons, clavier de lettres, saisie de solution
-  shared/    Utilitaires communs (normalisation de texte, DOM sûr)
+  shared/    Utilitaires communs (DOM sûr, lecture de l'URL)
   main.ts    Choix du mode selon l'URL
 ```
 
@@ -81,7 +81,7 @@ Principes :
 
 - `game/` : couverture élevée, chaque règle de docs/SPEC.md a au moins un test
 - `protocol/` : tests des schémas (messages valides et invalides)
-- `shared/` : tests de la normalisation de texte
+- `game/text.ts` : tests de la normalisation de texte
 - Écrire le test avant ou avec le code, jamais après coup « pour la forme »
 
 ## Workflow
@@ -90,6 +90,7 @@ Principes :
 - Avant chaque phase : proposer un plan court et attendre la validation
 - Après chaque phase : lancer `npm run check`, résumer, attendre la validation, puis commit
 - Commits courts au format Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`…)
+- Pas de ligne `Co-Authored-By` dans les commits : seul l'utilisateur en est l'auteur
 - Ne jamais `git push`, créer de dépôt ou modifier les réglages GitHub sans accord explicite
 - En cas de doute sur une règle du jeu : demander, ne pas inventer
 - Signaler clairement tout ce qui n'a pas pu être vérifié (en particulier sur le Fire TV Stick)

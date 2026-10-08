@@ -1,0 +1,50 @@
+export type Theme = 'Expression' | 'Proverbe' | 'Film' | 'Cuisine' | 'Lieu' | 'Objet';
+
+export interface Phrase {
+  text: string;
+  theme: Theme;
+}
+
+export const PHRASES: readonly Phrase[] = [
+  { theme: 'Expression', text: 'Avoir le cœur sur la main' },
+  { theme: 'Expression', text: 'Poser un lapin' },
+  { theme: 'Expression', text: 'Coûter les yeux de la tête' },
+  { theme: 'Expression', text: 'Avoir un poil dans la main' },
+  { theme: 'Expression', text: 'Tomber dans les pommes' },
+  { theme: 'Expression', text: 'Mettre son grain de sel' },
+  { theme: 'Expression', text: 'Casser les pieds' },
+  { theme: 'Expression', text: "Prendre la poudre d'escampette" },
+  { theme: 'Proverbe', text: "Petit à petit, l'oiseau fait son nid" },
+  { theme: 'Proverbe', text: 'Qui vivra verra' },
+  { theme: 'Proverbe', text: "L'habit ne fait pas le moine" },
+  { theme: 'Proverbe', text: "Pierre qui roule n'amasse pas mousse" },
+  { theme: 'Proverbe', text: 'La nuit porte conseil' },
+  { theme: 'Proverbe', text: 'Tout vient à point à qui sait attendre' },
+  { theme: 'Proverbe', text: 'Après la pluie, le beau temps' },
+  { theme: 'Film', text: 'Le Seigneur des anneaux' },
+  { theme: 'Film', text: 'Le Roi lion' },
+  { theme: 'Film', text: "Bienvenue chez les Ch'tis" },
+  { theme: 'Film', text: "Le Fabuleux Destin d'Amélie Poulain" },
+  { theme: 'Film', text: 'Les Visiteurs' },
+  { theme: 'Film', text: 'La Reine des neiges' },
+  { theme: 'Film', text: 'Intouchables' },
+  { theme: 'Cuisine', text: 'Blanquette de veau' },
+  { theme: 'Cuisine', text: 'Bœuf bourguignon' },
+  { theme: 'Cuisine', text: 'Tarte aux pommes' },
+  { theme: 'Cuisine', text: 'Gratin dauphinois' },
+  { theme: 'Cuisine', text: 'Mousse au chocolat' },
+  { theme: 'Cuisine', text: 'Crêpes Suzette' },
+  { theme: 'Cuisine', text: 'Pot-au-feu' },
+  { theme: 'Lieu', text: 'La tour Eiffel' },
+  { theme: 'Lieu', text: 'Le mont Saint-Michel' },
+  { theme: 'Lieu', text: 'Les Champs-Élysées' },
+  { theme: 'Lieu', text: "La Côte d'Azur" },
+  { theme: 'Lieu', text: 'Le château de Versailles' },
+  { theme: 'Lieu', text: 'La place de la Concorde' },
+  { theme: 'Objet', text: 'Une machine à laver' },
+  { theme: 'Objet', text: 'Un tire-bouchon' },
+  { theme: 'Objet', text: 'Un parapluie' },
+  { theme: 'Objet', text: 'Une brosse à dents' },
+  { theme: 'Objet', text: 'Un aspirateur' },
+  { theme: 'Objet', text: 'Une table de chevet' },
+];

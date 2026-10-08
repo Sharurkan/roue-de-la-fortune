@@ -35,7 +35,7 @@ export default tseslint.config(
     rules: {
       ...restrictImports([
         { regex: '^[.][.]/', message: 'game/ must not depend on other folders.' },
-        { regex: '^[^.]', message: 'game/ must not depend on any library.' },
+        { regex: '^(?!vitest$)[^.]', message: 'game/ must not depend on any library.' },
       ]),
       'no-restricted-globals': [
         'error',
@@ -57,7 +57,7 @@ export default tseslint.config(
     files: ['src/protocol/**/*.ts'],
     rules: restrictImports([
       { regex: '^[.][.]/(?!game/)', message: 'protocol/ may only depend on game/.' },
-      { regex: '^(?!zod$)[^.]', message: 'protocol/ may only use zod.' },
+      { regex: '^(?!(zod|vitest)$)[^.]', message: 'protocol/ may only use zod.' },
     ]),
   },
   {
