@@ -1,11 +1,11 @@
 import './style.css';
 import { startTestPhone } from './diagnostic/test-phone';
 import { startTestTv } from './diagnostic/test-tv';
+import { startPhone } from './phone/phone-app';
 import { parseMode } from './shared/mode';
 import { startTv } from './tv/tv-app';
 
 const NO_MODE_TEXT = 'Ajoute ?mode=tv ou ?mode=manette à l’adresse.';
-const PHONE_NOT_READY_TEXT = 'La manette arrive bientôt.';
 
 const root = document.getElementById('app');
 if (root) {
@@ -14,7 +14,7 @@ if (root) {
       startTv(root);
       break;
     case 'manette':
-      root.textContent = PHONE_NOT_READY_TEXT;
+      startPhone(root);
       break;
     case 'test-tv':
       startTestTv(root);

@@ -54,7 +54,7 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
     case 'letterAbsent':
       return `Pas de ${event.letter}…`;
     case 'turnPassed':
-      return `À ${teamName(event.team)} de jouer`;
+      return `${teamName(event.team)} prend la main`;
     case 'noMoreConsonants':
       return "Il n'y a plus de consonnes";
     case 'noMoreVowels':
