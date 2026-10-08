@@ -21,5 +21,6 @@ export const phoneActionSchema: z.ZodType<PhoneAction> = z.discriminatedUnion('t
   z.object({ type: z.literal('cancel') }),
   z.object({ type: z.literal('nextRound') }),
   z.object({ type: z.literal('endGame') }),
+  z.object({ type: z.literal('abandonGame') }),
   z.object({ type: z.literal('newGame') }),
 ]);

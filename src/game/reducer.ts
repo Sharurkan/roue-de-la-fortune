@@ -55,6 +55,8 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
       return nextRound(state, deps);
     case 'endGame':
       return endGame(state);
+    case 'abandonGame':
+      return abandonGame(state);
     case 'newGame':
       return newGame(state);
   }
@@ -286,6 +288,15 @@ function nextRound(state: GameState, deps: GameDeps): ReduceResult {
 function endGame(state: GameState): ReduceResult {
   if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
   return { state: { phase: 'gameOver', teams: state.teams }, events: [{ type: 'gameOver' }] };
+}
+
+/** Stops a game at any time. Round scores of an unfinished round are lost. */
+function abandonGame(state: GameState): ReduceResult {
+  if (state.phase !== 'playing' && state.phase !== 'roundOver') {
+    return reject(state, 'wrongPhase');
+  }
+  const teams = state.teams.map((team) => ({ ...team, roundScore: 0 }));
+  return { state: { phase: 'gameOver', teams }, events: [{ type: 'gameOver' }] };
 }
 
 function newGame(state: GameState): ReduceResult {

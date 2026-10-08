@@ -374,3 +374,37 @@ describe('rounds and game end', () => {
     expect(reduce(newGame(), { type: 'newGame' }, deps()).events).toEqual(rejection('wrongPhase'));
   });
 });
+
+describe('abandon', () => {
+  it('stops the game in the middle of a round, losing the round scores', () => {
+    const game = withRoundScore(newGame(), 0, 900);
+    const withTotal = { ...game, teams: game.teams.map((t, i) => ({ ...t, totalScore: i * 100 })) };
+    const result = reduce(withTotal, { type: 'abandonGame' }, deps());
+    expect(result.state).toEqual({
+      phase: 'gameOver',
+      teams: withTotal.teams.map((t) => ({ ...t, roundScore: 0 })),
+    });
+    expect(result.events).toEqual([{ type: 'gameOver' }]);
+  });
+
+  it('works while the wheel is spinning, and the end of the spin is then refused', () => {
+    const spinning = reduce(newGame(), { type: 'spin' }, deps()).state;
+    const over = reduce(spinning, { type: 'abandonGame' }, deps()).state;
+    expect(over.phase).toBe('gameOver');
+    expect(reduce(over, { type: 'spinEnded' }, deps()).events).toEqual(rejection('wrongPhase'));
+  });
+
+  it('works at the end of a round', () => {
+    const roundOver = apply(newGame(), [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: PHRASE.text },
+    ]).state;
+    expect(reduce(roundOver, { type: 'abandonGame' }, deps()).state.phase).toBe('gameOver');
+  });
+
+  it('is refused when no game is running', () => {
+    expect(reduce({ phase: 'setup' }, { type: 'abandonGame' }, deps()).events).toEqual(
+      rejection('wrongPhase'),
+    );
+  });
+});

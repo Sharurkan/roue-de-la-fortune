@@ -12,6 +12,8 @@ import { createElement } from '../shared/dom';
 import { letterKeys, teamNamesFor, type PhoneScreen } from './controls';
 import { PHONE_TEXTS } from './texts';
 
+export type ConfirmableAction = 'endGame' | 'abandonGame';
+
 export interface SetupDraft {
   teamCount: number;
   names: string[];
@@ -23,8 +25,9 @@ export interface ScreenContext {
   enabled: boolean;
   send: (action: PhoneAction) => void;
   setup: SetupDraft;
-  confirmingEnd: boolean;
-  askEndConfirmation: () => void;
+  /** Irreversible action waiting for a second tap, if any. */
+  confirming: ConfirmableAction | null;
+  askConfirmation: (action: ConfirmableAction) => void;
   refresh: () => void;
 }
 
@@ -169,23 +172,35 @@ function solvingScreen(context: ScreenContext): HTMLElement {
   return form;
 }
 
+const CONFIRMATION_LABELS: Record<ConfirmableAction, { ask: string; confirm: string }> = {
+  endGame: { ask: texts.endGame, confirm: texts.confirmEndGame },
+  abandonGame: { ask: texts.abandonGame, confirm: texts.confirmAbandonGame },
+};
+
+/** First tap asks, second tap sends: for actions that cannot be undone. */
+function confirmButton(context: ScreenContext, action: ConfirmableAction): HTMLButtonElement {
+  const labels = CONFIRMATION_LABELS[action];
+  if (context.confirming === action) {
+    return button(
+      labels.confirm,
+      () => {
+        context.send({ type: action });
+      },
+      { className: 'danger-button', disabled: !context.enabled },
+    );
+  }
+  return button(
+    labels.ask,
+    () => {
+      context.askConfirmation(action);
+    },
+    { className: 'secondary-button', disabled: !context.enabled },
+  );
+}
+
 function roundOverScreen(context: ScreenContext, winner: number | null): HTMLElement {
   const name = winner === null ? '' : (context.view.teams[winner]?.name ?? '');
-  const end = context.confirmingEnd
-    ? button(
-        texts.confirmEndGame,
-        () => {
-          context.send({ type: 'endGame' });
-        },
-        {
-          className: 'danger-button',
-          disabled: !context.enabled,
-        },
-      )
-    : button(texts.endGame, context.askEndConfirmation, {
-        className: 'secondary-button',
-        disabled: !context.enabled,
-      });
+  const end = confirmButton(context, 'endGame');
   return createElement('div', { className: 'screen' }, [
     createElement('p', { className: 'headline', text: texts.roundWinner(name) }),
     button(
@@ -232,6 +247,7 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
         ...turnButtons(context, screen.canSpin, screen.canBuyVowel),
         ...(screen.noMoreConsonants ? [note(texts.noMoreConsonants)] : []),
         ...(screen.noMoreVowels ? [note(texts.noMoreVowels)] : []),
+        confirmButton(context, 'abandonGame'),
       ]);
     case 'spinning':
       return createElement('div', { className: 'screen' }, [

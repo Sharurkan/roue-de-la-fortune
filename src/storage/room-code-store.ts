@@ -18,3 +18,11 @@ export function saveRoomCode(code: string, key = ROOM_CODE_KEY): boolean {
     return false;
   }
 }
+
+export function clearRoomCode(key = ROOM_CODE_KEY): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Nothing saved can be read back either: there is nothing left to clear.
+  }
+}

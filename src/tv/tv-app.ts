@@ -16,6 +16,7 @@ import {
 } from '../protocol/messages';
 import { toPublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
+import { loadGame, saveGame } from '../storage/game-store';
 import { loadRoomCode, saveRoomCode } from '../storage/room-code-store';
 import { createGameScreen, createRankingScreen, createSetupScreen } from './screens';
 import { createSound, type Sound } from './sound';
@@ -67,15 +68,22 @@ export function startTv(root: HTMLElement): void {
   const final = createRankingScreen();
   const corner = createElement('div', { className: 'corner' });
 
-  let state: GameState = INITIAL_STATE;
+  const warnings = { room: '', game: '', controller: '' };
+  const saved = loadGame();
+  if (saved.kind === 'unreadable') warnings.game = TV_TEXTS.saveUnreadable;
+  let state: GameState = saved.kind === 'loaded' ? saved.state : INITIAL_STATE;
   let code = initialRoomCode();
   let connection: ConnectionStatus = { kind: 'waiting' };
-  let warning = '';
   let presentation: Promise<void> = Promise.resolve();
 
   function updateCorner(): void {
     const soundHint = sound !== null && !sound.isUnlocked() ? TV_TEXTS.soundHint : '';
-    corner.textContent = [TV_TEXTS.roomCode(code), statusLabel(connection), soundHint, warning]
+    corner.textContent = [
+      TV_TEXTS.roomCode(code),
+      statusLabel(connection),
+      soundHint,
+      ...Object.values(warnings),
+    ]
       .filter((part) => part !== '')
       .join(' · ');
     setup.soundButton.textContent = soundHint === '' ? TV_TEXTS.soundOn : TV_TEXTS.soundButton;
@@ -83,7 +91,7 @@ export function startTv(root: HTMLElement): void {
 
   function showRoom(): void {
     setup.showRoom(code, controllerUrl(code));
-    warning = saveRoomCode(code) ? warning : TV_TEXTS.storageFailed;
+    warnings.room = saveRoomCode(code) ? '' : TV_TEXTS.storageFailed;
     updateCorner();
   }
 
@@ -133,6 +141,8 @@ export function startTv(root: HTMLElement): void {
   function dispatch(action: GameAction): void {
     const result = reduce(state, action, GAME_DEPS);
     state = result.state;
+    warnings.game = saveGame(state) ? '' : TV_TEXTS.saveFailed;
+    updateCorner();
     host.send(stateMessage(toPublicView(state, result.events)));
     // A failed animation must not block the next ones: show the final state instead.
     presentation = presentation
@@ -153,7 +163,9 @@ export function startTv(root: HTMLElement): void {
       connection = status;
       setup.showConnection(statusLabel(status), status.kind);
       updateCorner();
-      if (status.kind === 'connected') host.send(stateMessage(toPublicView(state, [])));
+      if (status.kind !== 'connected') return;
+      warnings.controller = '';
+      host.send(stateMessage(toPublicView(state, [])));
     },
     decode: parsePhoneMessage,
     heartbeat: HEARTBEAT,
@@ -162,7 +174,7 @@ export function startTv(root: HTMLElement): void {
     },
     onInvalid: (reason) => {
       if (reason !== 'version') return;
-      warning = TV_TEXTS.updateController;
+      warnings.controller = TV_TEXTS.updateController;
       updateCorner();
     },
   });
@@ -179,5 +191,16 @@ export function startTv(root: HTMLElement): void {
   showRoom();
   setup.showConnection(statusLabel(connection), connection.kind);
   render(state);
+  resume();
   setup.soundButton.focus();
+
+  /** After a reload in the middle of a round: say so, and finish a wheel spin that was cut short. */
+  function resume(): void {
+    if (state.phase !== 'playing' && state.phase !== 'roundOver') return;
+    game.showMessage(TV_TEXTS.gameResumed);
+    if (state.phase === 'playing' && state.step.kind === 'spinning') {
+      const events: GameEvent[] = [{ type: 'wheelSpun', segmentIndex: state.step.segmentIndex }];
+      presentation = present({ state, events });
+    }
+  }
 }

@@ -47,6 +47,7 @@ export type GameAction =
   | { type: 'cancel' }
   | { type: 'nextRound' }
   | { type: 'endGame' }
+  | { type: 'abandonGame' }
   | { type: 'newGame' };
 
 export const INITIAL_STATE: GameState = { phase: 'setup' };

@@ -26,6 +26,7 @@ describe('parsePhoneMessage', () => {
     { type: 'cancel' },
     { type: 'nextRound' },
     { type: 'endGame' },
+    { type: 'abandonGame' },
     { type: 'newGame' },
   ] satisfies PhoneAction[])('accepts the action $type', (action) => {
     expect(parsePhoneMessage(actionMessage(action))).toEqual({

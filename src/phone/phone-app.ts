@@ -12,9 +12,10 @@ import {
 } from '../protocol/messages';
 import type { PublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
+import { clearRoomCode, loadRoomCode, saveRoomCode } from '../storage/room-code-store';
 import { describeScreen } from './controls';
 import { readCodeFromUrl, writeCodeToUrl } from './room-url';
-import { renderScreen, type SetupDraft } from './screens';
+import { renderScreen, type ConfirmableAction, type SetupDraft } from './screens';
 import { messageFor, PHONE_TEXTS, statusLabel, type BannerMessage } from './texts';
 
 /** If the TV never answers an action, buttons come back after this delay. */
@@ -22,8 +23,20 @@ const PENDING_TIMEOUT_MS = 5000;
 
 const texts = PHONE_TEXTS;
 
+const PHONE_ROOM_CODE_KEY = 'rdlf.phoneRoomCode';
+
+/** The code from the QR code wins; otherwise the phone reconnects to the last TV. */
+function initialCode(): string | null {
+  const fromUrl = readCodeFromUrl();
+  if (fromUrl !== null) return fromUrl;
+  const saved = loadRoomCode(PHONE_ROOM_CODE_KEY);
+  if (saved === null || !isValidRoomCode(saved)) return null;
+  writeCodeToUrl(saved);
+  return saved;
+}
+
 export function startPhone(root: HTMLElement): void {
-  const code = readCodeFromUrl();
+  const code = initialCode();
   if (code === null) showCodeForm(root);
   else showController(root, code);
 }
@@ -75,13 +88,14 @@ function headerText(view: PublicView): string {
 }
 
 function showController(root: HTMLElement, code: string): void {
+  const remembered = saveRoomCode(code, PHONE_ROOM_CODE_KEY);
   let view: PublicView | null = null;
   let status: ConnectionStatus = { kind: 'waiting' };
   let message: BannerMessage | null = null;
   let versionError = false;
   let pending = false;
   let pendingTimer: ReturnType<typeof setTimeout> | undefined;
-  let confirmingEnd = false;
+  let confirming: ConfirmableAction | null = null;
   let renderedKey = '';
   const setup: SetupDraft = { teamCount: 2, names: [] };
 
@@ -116,7 +130,7 @@ function showController(root: HTMLElement, code: string): void {
     const screen = describeScreen(current);
     const enabled = status.kind === 'connected' && !pending;
     // Rebuilding the screen would wipe what is being typed: only do it when something changed.
-    const key = JSON.stringify({ screen, enabled, confirmingEnd, setup: setup.teamCount, current });
+    const key = JSON.stringify({ screen, enabled, confirming, setup: setup.teamCount, current });
     if (key === renderedKey) return;
     renderedKey = key;
     body.replaceChildren(
@@ -125,9 +139,9 @@ function showController(root: HTMLElement, code: string): void {
         enabled,
         send,
         setup,
-        confirmingEnd,
-        askEndConfirmation: () => {
-          confirmingEnd = true;
+        confirming,
+        askConfirmation: (action) => {
+          confirming = action;
           render();
         },
         refresh: render,
@@ -148,7 +162,7 @@ function showController(root: HTMLElement, code: string): void {
   function receiveView(next: PublicView): void {
     view = next;
     versionError = false;
-    confirmingEnd = false;
+    confirming = null;
     setPending(false);
     if (next.lastEvents.length > 0) {
       message = messageFor(next.lastEvents, (team) => next.teams[team]?.name ?? '');
@@ -179,6 +193,7 @@ function showController(root: HTMLElement, code: string): void {
     client.stop();
     setPending(false);
     writeCodeToUrl(null);
+    clearRoomCode(PHONE_ROOM_CODE_KEY);
     showCodeForm(root);
   });
 
@@ -189,6 +204,9 @@ function showController(root: HTMLElement, code: string): void {
       header,
       messageElement,
       body,
+      ...(remembered
+        ? []
+        : [createElement('p', { className: 'note', text: texts.codeNotRemembered })]),
       changeButton,
     ]),
   );

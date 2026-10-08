@@ -1,4 +1,6 @@
-export type Theme = 'Expression' | 'Proverbe' | 'Film' | 'Cuisine' | 'Lieu' | 'Objet';
+export const THEMES = ['Expression', 'Proverbe', 'Film', 'Cuisine', 'Lieu', 'Objet'] as const;
+
+export type Theme = (typeof THEMES)[number];
 
 export interface Phrase {
   text: string;

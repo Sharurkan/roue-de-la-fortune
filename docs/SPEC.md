@@ -80,6 +80,7 @@ Fin de manche
 Fin de partie
 
 - Quand l'utilisateur le décide, depuis le téléphone, en fin de manche.
+- « Abandonner la partie » sur le téléphone, à tout moment, avec confirmation : classement direct, les scores de la manche en cours sont perdus.
 - Classement final sur la TV. Bouton « Nouvelle partie » sur le téléphone.
 
 Phrases
