@@ -1,6 +1,7 @@
 import { startClient } from '../net/client';
 import type { ConnectionStatus } from '../net/connection-status';
-import { parsePong, type PingMessage } from '../net/ping';
+import { decodePong, type PingMessage, type PongMessage } from '../net/ping';
+import { HEARTBEAT, type HeartbeatMessage } from '../protocol/messages';
 import { isValidRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from '../net/room-code';
 import { createElement } from '../shared/dom';
 import { PHONE_TEXTS, statusLabel } from './texts';
@@ -82,12 +83,13 @@ function showController(root: HTMLElement, code: string): void {
     pingButton.disabled = status.kind !== 'connected';
   }
 
-  const client = startClient({
+  const client = startClient<PongMessage, PingMessage | HeartbeatMessage>({
     code,
     onStatus: showStatus,
-    onMessage: (data) => {
-      const pong = parsePong(data);
-      if (pong === null) return;
+    decode: decodePong,
+    heartbeat: HEARTBEAT,
+    onInvalid: () => undefined,
+    onMessage: (pong) => {
       pongCount += 1;
       pongsElement.textContent = texts.pongs(pongCount);
       latencyElement.textContent = texts.latency(performance.now() - pong.sentAt);

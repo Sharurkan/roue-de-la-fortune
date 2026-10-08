@@ -116,6 +116,7 @@ Phrases
 
 - Téléphone → TV : `{ v: 1, type: "action", action }`.
 - TV → téléphone : `{ v: 1, type: "state", view }`. La `view` ne contient jamais la solution.
+- Dans les deux sens : `{ v: 1, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.
 - Tous les messages sont validés avec zod à la réception.
 - Version différente : message ignoré et erreur affichée (« Mets à jour la page »).
 

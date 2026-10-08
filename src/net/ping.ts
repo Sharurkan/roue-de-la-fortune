@@ -1,4 +1,6 @@
-// Temporary messages for the Fire TV Stick test. Replaced by the zod protocol in phase 3.
+import type { Decoded } from './channel';
+
+// Temporary messages for the Fire TV Stick test page. Removed with that page in phase 4.
 export interface PingMessage {
   type: 'ping';
   seq: number;
@@ -29,4 +31,14 @@ export function parsePing(data: unknown): PingMessage | null {
 
 export function parsePong(data: unknown): PongMessage | null {
   return parseTimed(data, 'pong');
+}
+
+export function decodePing(data: unknown): Decoded<PingMessage> {
+  const message = parsePing(data);
+  return message ? { ok: true, message } : { ok: false, reason: 'invalid' };
+}
+
+export function decodePong(data: unknown): Decoded<PongMessage> {
+  const message = parsePong(data);
+  return message ? { ok: true, message } : { ok: false, reason: 'invalid' };
 }

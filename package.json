@@ -27,6 +27,7 @@
     "vitest": "5.0.3"
   },
   "dependencies": {
-    "peerjs": "1.5.5"
+    "peerjs": "1.5.5",
+    "zod": "4.6.5"
   }
 }

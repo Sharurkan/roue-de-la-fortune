@@ -1,5 +1,6 @@
 import { startHost } from '../net/host';
-import { parsePing, type PongMessage } from '../net/ping';
+import { decodePing, type PingMessage, type PongMessage } from '../net/ping';
+import { HEARTBEAT, type HeartbeatMessage } from '../protocol/messages';
 import { generateRoomCode, isValidRoomCode } from '../net/room-code';
 import { getWebRtcSupport } from '../net/support';
 import { createElement } from '../shared/dom';
@@ -72,7 +73,7 @@ export function startTv(root: HTMLElement): void {
   const code = initialRoomCode();
   showCode(code);
 
-  const host = startHost({
+  const host = startHost<PingMessage, PongMessage | HeartbeatMessage>({
     code,
     createCode: () => generateRoomCode(Math.random),
     onCodeChange: showCode,
@@ -80,9 +81,10 @@ export function startTv(root: HTMLElement): void {
       statusElement.textContent = statusLabel(status);
       statusElement.dataset['kind'] = status.kind;
     },
-    onMessage: (data) => {
-      const ping = parsePing(data);
-      if (ping === null) return;
+    decode: decodePing,
+    heartbeat: HEARTBEAT,
+    onInvalid: () => undefined,
+    onMessage: (ping) => {
       const pong: PongMessage = { type: 'pong', seq: ping.seq, sentAt: ping.sentAt };
       host.send(pong);
       pingCount += 1;

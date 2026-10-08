@@ -1,4 +1,5 @@
 import type { DataConnection } from 'peerjs';
+import { openChannel, type Channel, type ChannelOptions } from './channel';
 import type { ConnectionStatus } from './connection-status';
 import { createRecoveringPeer } from './recovering-peer';
 import { peerIdFor } from './room-code';
@@ -6,24 +7,23 @@ import { peerIdFor } from './room-code';
 /** Retries with the same code before giving up and picking a new one. */
 const ID_TAKEN_MAX_RETRIES = 3;
 
-export interface HostOptions {
+export interface HostOptions<TIn, TOut> extends ChannelOptions<TIn, TOut> {
   code: string;
   createCode(): string;
   onCodeChange(code: string): void;
   onStatus(status: ConnectionStatus): void;
-  onMessage(data: unknown): void;
 }
 
-export interface Host {
-  send(data: unknown): void;
+export interface Host<TOut> {
+  send(message: TOut): void;
   stop(): void;
 }
 
 /** TV side: waits for a single controller. A new controller replaces the previous one. */
-export function startHost(options: HostOptions): Host {
+export function startHost<TIn, TOut>(options: HostOptions<TIn, TOut>): Host<TOut> {
   let code = options.code;
   let idTakenCount = 0;
-  let controller: DataConnection | null = null;
+  let controller: Channel<TOut> | null = null;
 
   function handleError(type: string): void {
     if (type === 'unavailable-id') {
@@ -39,34 +39,32 @@ export function startHost(options: HostOptions): Host {
 
   function acceptController(connection: DataConnection): void {
     controller?.close();
-    controller = connection;
-    const isCurrent = (): boolean => connection === controller;
-    connection.on('open', () => {
-      if (isCurrent()) options.onStatus({ kind: 'connected' });
+    const channel: Channel<TOut> = openChannel(connection, options, {
+      onOpen: () => {
+        if (channel === controller) options.onStatus({ kind: 'connected' });
+      },
+      onLost: () => {
+        if (channel !== controller) return;
+        controller = null;
+        options.onStatus({ kind: 'disconnected' });
+      },
     });
-    connection.on('data', (data) => {
-      if (isCurrent()) options.onMessage(data);
-    });
-    connection.on('close', () => {
-      if (!isCurrent()) return;
-      controller = null;
-      options.onStatus({ kind: 'disconnected' });
-    });
+    controller = channel;
   }
 
   const peer = createRecoveringPeer({
     getId: () => peerIdFor(code),
     onOpen: () => {
       idTakenCount = 0;
-      options.onStatus(controller?.open ? { kind: 'connected' } : { kind: 'waiting' });
+      options.onStatus(controller?.isOpen() ? { kind: 'connected' } : { kind: 'waiting' });
     },
     onError: handleError,
     onConnection: acceptController,
   });
 
   return {
-    send: (data) => {
-      if (controller?.open) void controller.send(data);
+    send: (message) => {
+      controller?.send(message);
     },
     stop: () => {
       controller?.close();

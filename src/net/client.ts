@@ -1,4 +1,5 @@
-import type { DataConnection, Peer } from 'peerjs';
+import type { Peer } from 'peerjs';
+import { openChannel, type Channel, type ChannelOptions } from './channel';
 import type { ConnectionStatus } from './connection-status';
 import { createRecoveringPeer, RETRY_DELAY_MS } from './recovering-peer';
 import { peerIdFor } from './room-code';
@@ -7,48 +8,47 @@ import { peerIdFor } from './room-code';
 // and never fails explicitly: a timeout is the only way to notice it.
 const CONNECT_TIMEOUT_MS = 10000;
 
-export interface ClientOptions {
+export interface ClientOptions<TIn, TOut> extends ChannelOptions<TIn, TOut> {
   code: string;
   onStatus(status: ConnectionStatus): void;
-  onMessage(data: unknown): void;
 }
 
-export interface Client {
-  send(data: unknown): void;
+export interface Client<TOut> {
+  send(message: TOut): void;
   stop(): void;
 }
 
 /** Phone side: connects to the TV and keeps trying until it succeeds. */
-export function startClient(options: ClientOptions): Client {
+export function startClient<TIn, TOut>(options: ClientOptions<TIn, TOut>): Client<TOut> {
   const hostId = peerIdFor(options.code);
-  let connection: DataConnection | null = null;
+  let channel: Channel<TOut> | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
 
   function connect(peer: Peer): void {
-    connection?.close();
-    const created = peer.connect(hostId, { reliable: true });
-    connection = created;
-    const isCurrent = (): boolean => created === connection;
+    channel?.close();
+    const connection = peer.connect(hostId, { reliable: true, serialization: 'json' });
+    const current: Channel<TOut> = openChannel(connection, options, {
+      onOpen: () => {
+        clearTimeout(timeout);
+        if (current === channel) options.onStatus({ kind: 'connected' });
+      },
+      onLost: () => {
+        clearTimeout(timeout);
+        if (current !== channel) return;
+        channel = null;
+        options.onStatus({ kind: 'disconnected' });
+        scheduleRetry();
+      },
+    });
+    channel = current;
     const timeout = setTimeout(() => {
-      if (!isCurrent() || created.open) return;
+      if (current !== channel || current.isOpen()) return;
+      current.close();
+      channel = null;
       options.onStatus({ kind: 'error', reason: 'timeout' });
       scheduleRetry();
     }, CONNECT_TIMEOUT_MS);
-
-    created.on('open', () => {
-      clearTimeout(timeout);
-      if (isCurrent()) options.onStatus({ kind: 'connected' });
-    });
-    created.on('data', (data) => {
-      if (isCurrent()) options.onMessage(data);
-    });
-    created.on('close', () => {
-      clearTimeout(timeout);
-      if (!isCurrent()) return;
-      options.onStatus({ kind: 'disconnected' });
-      scheduleRetry();
-    });
   }
 
   function scheduleRetry(): void {
@@ -63,7 +63,7 @@ export function startClient(options: ClientOptions): Client {
   const recoveringPeer = createRecoveringPeer({
     getId: () => undefined,
     onOpen: (peer) => {
-      if (!connection?.open) connect(peer);
+      if (!channel?.isOpen()) connect(peer);
     },
     onError: (type) => {
       options.onStatus({ kind: 'error', reason: type });
@@ -73,13 +73,13 @@ export function startClient(options: ClientOptions): Client {
   });
 
   return {
-    send: (data) => {
-      if (connection?.open) void connection.send(data);
+    send: (message) => {
+      channel?.send(message);
     },
     stop: () => {
       stopped = true;
       clearTimeout(retryTimer);
-      connection?.close();
+      channel?.close();
       recoveringPeer.stop();
     },
   };
