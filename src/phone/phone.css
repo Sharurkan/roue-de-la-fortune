@@ -9,7 +9,7 @@
 
 .controller h1 {
   margin-bottom: 16px;
-  color: var(--accent);
+  font-size: 36px;
 }
 
 .controller .room {
@@ -32,9 +32,9 @@
 }
 
 .controller .header {
-  font-size: 22px;
-  font-weight: bold;
-  color: var(--accent);
+  font-family: var(--font-title);
+  font-size: 24px;
+  line-height: 1.15;
 }
 
 .controller .message {
@@ -67,8 +67,9 @@
 }
 
 .headline {
+  font-family: var(--font-title);
   font-size: 22px;
-  font-weight: bold;
+  line-height: 1.2;
 }
 
 .note {
@@ -88,7 +89,7 @@
   flex: 1;
   min-height: 56px;
   margin-right: 8px;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--trim-light);
   border-radius: 12px;
   background: transparent;
   color: var(--fg);
@@ -101,8 +102,7 @@
 }
 
 .choice.selected {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--trim-main);
 }
 
 .text-input {
@@ -124,7 +124,7 @@
 }
 
 .secondary-button {
-  border: 2px solid var(--muted);
+  border: 2px solid var(--trim-light);
   background: transparent;
   color: var(--fg);
 }
@@ -152,15 +152,16 @@
 }
 
 .key:disabled {
-  background: #5b6782;
-  color: #9aa6c2;
+  background: var(--trim-dark);
+  color: var(--trim-main);
   opacity: 1;
 }
 
 .phone-ranking {
   padding-left: 0;
   list-style: none;
-  font-size: 20px;
+  font-family: var(--font-title);
+  font-size: 22px;
 }
 
 .phone-ranking li {

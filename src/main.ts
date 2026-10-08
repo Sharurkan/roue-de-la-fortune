@@ -1,3 +1,4 @@
+import '@fontsource-variable/baloo-2/wght.css';
 import './style.css';
 import { startTestPhone } from './diagnostic/test-phone';
 import { startTestTv } from './diagnostic/test-tv';

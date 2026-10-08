@@ -75,11 +75,10 @@ function renderTeams(container: HTMLElement, teams: readonly Team[], active: num
     ...teams.map((team, index) =>
       createElement('div', { className: index === active ? 'team active' : 'team' }, [
         createElement('div', { className: 'team-name', text: team.name }),
-        createElement('div', { className: 'team-round', text: TV_TEXTS.euros(team.roundScore) }),
-        createElement('div', {
-          className: 'team-total',
-          text: TV_TEXTS.total(team.totalScore),
-        }),
+        createElement('div', { className: 'team-scores' }, [
+          createElement('div', { className: 'team-round', text: TV_TEXTS.euros(team.roundScore) }),
+          createElement('div', { className: 'team-total', text: TV_TEXTS.total(team.totalScore) }),
+        ]),
       ]),
     ),
   );
@@ -89,13 +88,14 @@ export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
   const wheel = createWheel(WHEEL_SEGMENTS, onTick);
   const header = createElement('header', { className: 'game-header' });
+  const theme = createElement('div', { className: 'theme-tab' });
   const banner = createElement('div', { className: 'banner' });
   const teams = createElement('div', { className: 'teams' });
   const letters = createElement('div', { className: 'letters' });
   const hint = createElement('div', { className: 'game-hint muted' });
   const element = createElement('section', { className: 'game' }, [
     header,
-    board.element,
+    createElement('div', { className: 'board-frame' }, [board.element, theme]),
     createElement('div', { className: 'wheel-slot' }, [wheel.element]),
     banner,
     teams,
@@ -105,7 +105,8 @@ export function createGameScreen(onTick: () => void): GameScreen {
 
   function render(state: PlayingState | RoundOverState): void {
     const { round } = state;
-    header.textContent = `${TV_TEXTS.round(state.roundNumber)} · ${round.phrase.theme}`;
+    header.textContent = TV_TEXTS.round(state.roundNumber);
+    theme.textContent = round.phrase.theme;
     if (board.phrase() !== round.phrase.text)
       board.setPhrase(round.phrase.text, round.guessedLetters);
     if (state.phase === 'roundOver') board.revealAll();

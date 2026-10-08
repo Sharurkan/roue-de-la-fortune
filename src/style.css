@@ -1,11 +1,32 @@
+/*
+ * Luckiest Guy draws the euro sign like a "<": the unicode-range leaves U+20AC
+ * out, so the browser takes € from the next font (Baloo 2).
+ */
+@font-face {
+  font-family: 'Title';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/luckiest-guy/files/luckiest-guy-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-20AB, U+20AD-FFFF;
+}
+
 :root {
-  --bg: #0b1a3a;
+  --bg: #1a1c1f;
   --fg: #ffffff;
-  --muted: #b8c4e0;
+  --muted: #b9bdc4;
   --accent: #ffd23f;
   --ok: #4ade80;
   --error: #ff6b6b;
-  font-family: system-ui, sans-serif;
+  /* Duck blue trim: wheel rim, board frame, active team. */
+  --trim-light: #7fcfd6;
+  --trim-main: #0a6670;
+  --trim-dark: #043f46;
+  --trim-deep: #022a2f;
+  --trim-shadow: #011a1d;
+  --font-game: 'Baloo 2 Variable', system-ui, sans-serif;
+  --font-title: 'Title', var(--font-game);
+  font-family: var(--font-game);
   color: var(--fg);
   background: var(--bg);
 }
@@ -21,6 +42,8 @@ body {
 
 h1 {
   margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
 }
 
 button {
@@ -158,12 +181,12 @@ button:disabled {
 
 .big-button {
   min-height: 72px;
-  border: none;
+  border: 2px solid var(--trim-light);
   border-radius: 12px;
   font-size: 24px;
   font-weight: bold;
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--trim-main);
+  color: var(--fg);
 }
 
 .link-button {
