@@ -15,3 +15,19 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
   element.append(...children);
   return element;
 }
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Creates an SVG element. Attribute values are set one by one, never parsed as markup. */
+export function createSvgElement<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  attributes: Record<string, string | number> = {},
+  children: Node[] = [],
+): SVGElementTagNameMap[K] {
+  const element = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, String(value));
+  }
+  element.append(...children);
+  return element;
+}

@@ -10,6 +10,10 @@ describe('parseMode', () => {
     expect(parseMode('?mode=manette&code=ABCD')).toBe('manette');
   });
 
+  it.each(['test-tv', 'test-manette'])('recognizes the %s test page', (mode) => {
+    expect(parseMode(`?mode=${mode}`)).toBe(mode);
+  });
+
   it('returns null without a mode', () => {
     expect(parseMode('')).toBeNull();
   });

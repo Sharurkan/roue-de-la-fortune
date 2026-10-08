@@ -1,6 +1,6 @@
-import type { Decoded } from './channel';
+import type { Decoded } from '../net/channel';
 
-// Temporary messages for the Fire TV Stick test page. Removed with that page in phase 4.
+// Temporary messages for the Fire TV Stick test pages. Removed once the device is validated.
 export interface PingMessage {
   type: 'ping';
   seq: number;

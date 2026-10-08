@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { GameAction } from '../game/state';
-import { gameActionSchema } from './actions';
+import { phoneActionSchema, type PhoneAction } from './actions';
 import { publicViewSchema, type PublicView } from './view';
 
 export const PROTOCOL_VERSION = 1;
@@ -11,7 +10,7 @@ const heartbeatSchema = z.object({ v: version, type: z.literal('heartbeat') });
 export type HeartbeatMessage = z.infer<typeof heartbeatSchema>;
 
 const phoneMessageSchema = z.discriminatedUnion('type', [
-  z.object({ v: version, type: z.literal('action'), action: gameActionSchema }),
+  z.object({ v: version, type: z.literal('action'), action: phoneActionSchema }),
   heartbeatSchema,
 ]);
 
@@ -30,7 +29,7 @@ export type ParseResult<T> =
 
 export const HEARTBEAT: HeartbeatMessage = { v: PROTOCOL_VERSION, type: 'heartbeat' };
 
-export function actionMessage(action: GameAction): PhoneMessage {
+export function actionMessage(action: PhoneAction): PhoneMessage {
   return { v: PROTOCOL_VERSION, type: 'action', action };
 }
 

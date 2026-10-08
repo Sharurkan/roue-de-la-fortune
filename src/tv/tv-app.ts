@@ -1,12 +1,27 @@
+import './tv.css';
+import type { GameEvent } from '../game/events';
+import { PHRASES } from '../game/phrases';
+import { rankTeams } from '../game/ranking';
+import { reduce, type GameDeps, type ReduceResult } from '../game/reducer';
+import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
+import type { ConnectionStatus } from '../net/connection-status';
 import { startHost } from '../net/host';
-import { decodePing, type PingMessage, type PongMessage } from '../net/ping';
-import { HEARTBEAT, type HeartbeatMessage } from '../protocol/messages';
 import { generateRoomCode, isValidRoomCode } from '../net/room-code';
-import { getWebRtcSupport } from '../net/support';
+import {
+  HEARTBEAT,
+  parsePhoneMessage,
+  stateMessage,
+  type PhoneMessage,
+  type TvMessage,
+} from '../protocol/messages';
+import { toPublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
 import { loadRoomCode, saveRoomCode } from '../storage/room-code-store';
-import { createSound } from './sound';
-import { statusLabel, TV_TEXTS } from './texts';
+import { createGameScreen, createRankingScreen, createSetupScreen } from './screens';
+import { createSound, type Sound } from './sound';
+import { eventMessage, statusLabel, TV_TEXTS } from './texts';
+
+const GAME_DEPS: GameDeps = { random: Math.random, phrases: PHRASES };
 
 function controllerUrl(code: string): string {
   return `${window.location.origin}${window.location.pathname}?mode=manette&code=${code}`;
@@ -17,109 +32,152 @@ function initialRoomCode(): string {
   return saved !== null && isValidRoomCode(saved) ? saved : generateRoomCode(Math.random);
 }
 
-function diagnosticRow(label: string, value: string): HTMLElement {
-  return createElement('li', {}, [
-    createElement('span', { className: 'diag-label', text: `${label} : ` }),
-    createElement('span', { text: value }),
-  ]);
+function teamNameIn(state: GameState): (team: number) => string {
+  return (team) => (state.phase === 'setup' ? '' : (state.teams[team]?.name ?? ''));
+}
+
+function bannerText(result: ReduceResult): string | null {
+  const { state, events } = result;
+  const messages = events
+    .map((event) => eventMessage(event, teamNameIn(state)))
+    .filter((message): message is string => message !== null);
+  if (messages.length > 0) return messages.join(' · ');
+  if (state.phase === 'playing' && state.step.kind === 'guessingConsonant') {
+    return TV_TEXTS.consonantFor(state.step.amount);
+  }
+  return null;
+}
+
+function setupSound(sound: Sound | null, onChange: () => void): void {
+  const unlock = (): void => {
+    if (sound === null || sound.isUnlocked()) return;
+    void sound.unlock().then(onChange);
+  };
+  // The Fire TV remote "OK" button arrives as Enter, or as a click on the focused button.
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') unlock();
+  });
+  document.addEventListener('click', unlock);
 }
 
 export function startTv(root: HTMLElement): void {
-  const texts = TV_TEXTS;
   const sound = createSound();
-  let pingCount = 0;
+  const setup = createSetupScreen();
+  const game = createGameScreen(() => sound?.tick());
+  const final = createRankingScreen();
+  const corner = createElement('div', { className: 'corner' });
 
-  const codeElement = createElement('div', { className: 'tv-code' });
-  const urlElement = createElement('div', { className: 'tv-url' });
-  const statusElement = createElement('div', { className: 'status' });
-  const storageWarning = createElement('div', { className: 'warning' });
-  const pingsElement = createElement('div', {
-    className: 'tv-pings',
-    text: texts.pingsReceived(0),
-  });
-  const soundButton = createElement('button', { className: 'tv-sound', text: texts.soundButton });
-  const errorsList = createElement('ul', { className: 'errors' });
-  const support = getWebRtcSupport();
-  const yesNo = (value: boolean): string => (value ? texts.yes : texts.no);
+  let state: GameState = INITIAL_STATE;
+  let code = initialRoomCode();
+  let connection: ConnectionStatus = { kind: 'waiting' };
+  let warning = '';
+  let presentation: Promise<void> = Promise.resolve();
 
-  function showCode(code: string): void {
-    codeElement.textContent = code;
-    urlElement.textContent = controllerUrl(code);
-    storageWarning.textContent = saveRoomCode(code) ? '' : texts.storageFailed;
+  function updateCorner(): void {
+    const soundHint = sound !== null && !sound.isUnlocked() ? TV_TEXTS.soundHint : '';
+    corner.textContent = [TV_TEXTS.roomCode(code), statusLabel(connection), soundHint, warning]
+      .filter((part) => part !== '')
+      .join(' · ');
+    setup.soundButton.textContent = soundHint === '' ? TV_TEXTS.soundOn : TV_TEXTS.soundButton;
   }
 
-  function addError(message: string): void {
-    errorsList.append(createElement('li', { text: message }));
+  function showRoom(): void {
+    setup.showRoom(code, controllerUrl(code));
+    warning = saveRoomCode(code) ? warning : TV_TEXTS.storageFailed;
+    updateCorner();
   }
 
-  if (sound === null) {
-    soundButton.disabled = true;
-    soundButton.textContent = texts.soundUnavailable;
+  function render(current: GameState): void {
+    setup.element.hidden = current.phase !== 'setup';
+    game.element.hidden = current.phase !== 'playing' && current.phase !== 'roundOver';
+    final.element.hidden = current.phase !== 'gameOver';
+    if (current.phase === 'playing' || current.phase === 'roundOver') game.render(current);
+    if (current.phase === 'gameOver') final.render(current.teams, rankTeams(current.teams));
   }
-  soundButton.addEventListener('click', () => {
-    if (sound === null) return;
-    void sound.unlock().then((unlocked) => {
-      soundButton.textContent = unlocked ? texts.soundOn : texts.soundFailed;
-    });
-  });
 
-  window.addEventListener('error', (event) => {
-    addError(event.message);
-  });
-  window.addEventListener('unhandledrejection', (event) => {
-    addError(String(event.reason));
-  });
+  async function animate(event: GameEvent): Promise<void> {
+    switch (event.type) {
+      case 'wheelSpun':
+        await game.wheel.spin(event.segmentIndex);
+        dispatch({ type: 'spinEnded' });
+        return;
+      case 'letterFound':
+        await game.board.reveal([event.letter], () => sound?.reveal());
+        return;
+      case 'letterAbsent':
+      case 'wrongSolution':
+        sound?.absent();
+        return;
+      case 'bankrupt':
+        sound?.bankrupt();
+        return;
+      case 'roundWon':
+        game.board.revealAll();
+        sound?.win();
+        return;
+      default:
+        return;
+    }
+  }
 
-  const code = initialRoomCode();
-  showCode(code);
+  async function present(result: ReduceResult): Promise<void> {
+    const { state: next, events } = result;
+    const isRound = next.phase === 'playing' || next.phase === 'roundOver';
+    if (isRound && game.board.phrase() !== next.round.phrase.text) render(next);
+    const banner = bannerText(result);
+    if (banner !== null) game.showMessage(banner);
+    for (const event of events) await animate(event);
+    render(next);
+  }
 
-  const host = startHost<PingMessage, PongMessage | HeartbeatMessage>({
+  function dispatch(action: GameAction): void {
+    const result = reduce(state, action, GAME_DEPS);
+    state = result.state;
+    host.send(stateMessage(toPublicView(state, result.events)));
+    // A failed animation must not block the next ones: show the final state instead.
+    presentation = presentation
+      .then(() => present(result))
+      .catch(() => {
+        render(state);
+      });
+  }
+
+  const host = startHost<PhoneMessage, TvMessage>({
     code,
     createCode: () => generateRoomCode(Math.random),
-    onCodeChange: showCode,
-    onStatus: (status) => {
-      statusElement.textContent = statusLabel(status);
-      statusElement.dataset['kind'] = status.kind;
+    onCodeChange: (newCode) => {
+      code = newCode;
+      showRoom();
     },
-    decode: decodePing,
+    onStatus: (status) => {
+      connection = status;
+      setup.showConnection(statusLabel(status), status.kind);
+      updateCorner();
+      if (status.kind === 'connected') host.send(stateMessage(toPublicView(state, [])));
+    },
+    decode: parsePhoneMessage,
     heartbeat: HEARTBEAT,
-    onInvalid: () => undefined,
-    onMessage: (ping) => {
-      const pong: PongMessage = { type: 'pong', seq: ping.seq, sentAt: ping.sentAt };
-      host.send(pong);
-      pingCount += 1;
-      pingsElement.textContent = texts.pingsReceived(pingCount);
-      sound?.beep();
+    onMessage: (message) => {
+      if (message.type === 'action') dispatch(message.action);
+    },
+    onInvalid: (reason) => {
+      if (reason !== 'version') return;
+      warning = TV_TEXTS.updateController;
+      updateCorner();
     },
   });
 
+  setupSound(sound, updateCorner);
   root.replaceChildren(
-    createElement('main', { className: 'tv' }, [
-      createElement('h1', { text: texts.title }),
-      createElement('p', { className: 'subtitle', text: texts.subtitle }),
-      createElement('div', { className: 'label', text: texts.roomCodeLabel }),
-      codeElement,
-      createElement('div', { className: 'label', text: texts.controllerUrlLabel }),
-      urlElement,
-      statusElement,
-      storageWarning,
-      soundButton,
-      pingsElement,
-      createElement('h2', { text: texts.diagnosticsTitle }),
-      createElement('ul', { className: 'diagnostics' }, [
-        diagnosticRow(texts.diagnostics.browser, support.browser),
-        diagnosticRow(texts.diagnostics.webRtc, yesNo(support.dataChannel)),
-        diagnosticRow(texts.diagnostics.webAudio, yesNo(sound !== null)),
-        diagnosticRow(texts.diagnostics.storage, yesNo(saveRoomCode(code))),
-        diagnosticRow(
-          texts.diagnostics.screen,
-          `${String(window.innerWidth)} × ${String(window.innerHeight)}`,
-        ),
-        diagnosticRow(texts.diagnostics.userAgent, navigator.userAgent),
-      ]),
-      createElement('h2', { text: texts.errorsTitle }),
-      errorsList,
+    createElement('main', { className: 'game-tv' }, [
+      setup.element,
+      game.element,
+      final.element,
+      corner,
     ]),
   );
-  soundButton.focus();
+  showRoom();
+  setup.showConnection(statusLabel(connection), connection.kind);
+  render(state);
+  setup.soundButton.focus();
 }

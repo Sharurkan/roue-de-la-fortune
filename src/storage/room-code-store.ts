@@ -1,18 +1,18 @@
 const ROOM_CODE_KEY = 'rdlf.roomCode';
 
 /** Returns null when nothing is saved or when storage is unavailable. */
-export function loadRoomCode(): string | null {
+export function loadRoomCode(key = ROOM_CODE_KEY): string | null {
   try {
-    return localStorage.getItem(ROOM_CODE_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
 /** Returns false when storage is unavailable (private mode, quota, blocked). */
-export function saveRoomCode(code: string): boolean {
+export function saveRoomCode(code: string, key = ROOM_CODE_KEY): boolean {
   try {
-    localStorage.setItem(ROOM_CODE_KEY, code);
+    localStorage.setItem(key, code);
     return true;
   } catch {
     return false;

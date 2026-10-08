@@ -1,10 +1,10 @@
 import { startClient } from '../net/client';
 import type { ConnectionStatus } from '../net/connection-status';
-import { decodePong, type PingMessage, type PongMessage } from '../net/ping';
+import { decodePong, type PingMessage, type PongMessage } from './ping';
 import { HEARTBEAT, type HeartbeatMessage } from '../protocol/messages';
 import { isValidRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from '../net/room-code';
 import { createElement } from '../shared/dom';
-import { PHONE_TEXTS, statusLabel } from './texts';
+import { PHONE_TEXTS, statusLabel } from './test-phone-texts';
 
 const CODE_PARAM = 'code';
 
@@ -23,7 +23,7 @@ function writeCodeToUrl(code: string | null): void {
   window.history.replaceState(null, '', url.toString());
 }
 
-export function startPhone(root: HTMLElement): void {
+export function startTestPhone(root: HTMLElement): void {
   const code = readCodeFromUrl();
   if (code === null) showCodeForm(root);
   else showController(root, code);

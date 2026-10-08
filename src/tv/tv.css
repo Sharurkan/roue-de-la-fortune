@@ -1,0 +1,265 @@
+/* TV game. Sizes in vh/vw so that it scales with the screen; 5 % margins for TV overscan. */
+.game-tv {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 5vh 5vw;
+  overflow: hidden;
+  font-size: 3vh;
+}
+
+.game-tv [hidden] {
+  display: none !important;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.corner {
+  position: absolute;
+  right: 5vw;
+  bottom: 2vh;
+  font-size: 2.2vh;
+  color: var(--muted);
+}
+
+/* Setup */
+.setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.setup h1 {
+  font-size: 7vh;
+  color: var(--accent);
+}
+
+.setup-code {
+  font-size: 14vh;
+  font-weight: bold;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+
+.setup-join {
+  display: flex;
+  align-items: center;
+  margin: 2vh 0;
+}
+
+.setup-qr .qr {
+  display: block;
+  width: 30vh;
+  height: 30vh;
+}
+
+.setup-help {
+  max-width: 45vw;
+  margin-left: 4vw;
+  text-align: left;
+}
+
+.setup-help p {
+  margin: 0 0 1vh;
+}
+
+.setup-url {
+  font-size: 2.6vh;
+  word-break: break-all;
+}
+
+.connection {
+  margin: 1vh 0;
+  font-size: 4vh;
+}
+
+.connection[data-kind='connected'] {
+  color: var(--ok);
+}
+
+.connection[data-kind='error'] {
+  color: var(--error);
+}
+
+.sound-button {
+  margin-top: 1vh;
+  padding: 1.5vh 3vw;
+  font-size: 3.5vh;
+  border: 0.5vh solid var(--accent);
+  border-radius: 1vh;
+  background: transparent;
+  color: var(--fg);
+}
+
+.sound-button:focus {
+  background: var(--accent);
+  color: var(--bg);
+  outline: none;
+}
+
+/* Game */
+.game {
+  display: grid;
+  grid-template-columns: 1fr 44vh;
+  grid-template-rows: auto auto 1fr auto;
+  grid-gap: 2vh 3vw;
+  height: 100%;
+}
+
+.game-header {
+  grid-column: 1 / -1;
+  font-size: 4.5vh;
+  font-weight: bold;
+  text-align: center;
+  color: var(--accent);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  grid-gap: 0.8vh;
+  padding: 1.2vh;
+  border-radius: 1vh;
+  background: #06402b;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(10vh, 5.6vw);
+  border-radius: 0.5vh;
+  background: #f5f5f0;
+  color: #111111;
+  font-size: min(6.5vh, 3.4vw);
+  font-weight: bold;
+}
+
+.tile.empty {
+  background: #0a7a52;
+}
+
+.tile.lit {
+  background: #4ea8ff;
+}
+
+.wheel-slot {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+}
+
+.wheel {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.banner {
+  grid-column: 1;
+  min-height: 6vh;
+  font-size: 4.5vh;
+  font-weight: bold;
+  text-align: center;
+  color: var(--accent);
+}
+
+.teams {
+  display: flex;
+  grid-column: 1;
+}
+
+.team {
+  flex: 1;
+  margin-right: 1.5vw;
+  padding: 1.5vh 1vw;
+  border: 0.5vh solid transparent;
+  border-radius: 1vh;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.team:last-child {
+  margin-right: 0;
+}
+
+.team.active {
+  border-color: var(--accent);
+  background: rgba(255, 210, 63, 0.18);
+}
+
+.team-name {
+  font-size: 3.2vh;
+  font-weight: bold;
+}
+
+.team-round {
+  font-size: 5vh;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.team-total {
+  font-size: 2.4vh;
+  color: var(--muted);
+}
+
+.letters {
+  grid-column: 2;
+  align-self: end;
+  font-size: 2.6vh;
+  letter-spacing: 0.15em;
+}
+
+.game-hint {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.game-hint:empty {
+  display: none;
+}
+
+/* Final ranking */
+.final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.final h1 {
+  font-size: 8vh;
+  color: var(--accent);
+}
+
+.ranking {
+  margin: 4vh 0;
+  padding: 0;
+  list-style: none;
+  font-size: 5vh;
+}
+
+.ranking li {
+  display: flex;
+  justify-content: space-between;
+  min-width: 60vw;
+  margin-bottom: 2vh;
+}
+
+.ranking li.winner {
+  color: var(--accent);
+  font-size: 6.5vh;
+  font-weight: bold;
+}
+
+.rank {
+  min-width: 10vw;
+}

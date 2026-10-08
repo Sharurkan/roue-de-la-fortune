@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_STATE, type GameAction } from '../game/state';
+import { INITIAL_STATE } from '../game/state';
+import type { PhoneAction } from './actions';
 import {
   actionMessage,
   HEARTBEAT,
@@ -17,7 +18,6 @@ describe('parsePhoneMessage', () => {
   it.each([
     { type: 'startGame', teamNames: ['A', 'B'] },
     { type: 'spin' },
-    { type: 'spinEnded' },
     { type: 'guessConsonant', letter: 'S' },
     { type: 'buyVowel' },
     { type: 'guessVowel', letter: 'é' },
@@ -27,7 +27,7 @@ describe('parsePhoneMessage', () => {
     { type: 'nextRound' },
     { type: 'endGame' },
     { type: 'newGame' },
-  ] satisfies GameAction[])('accepts the action $type', (action) => {
+  ] satisfies PhoneAction[])('accepts the action $type', (action) => {
     expect(parsePhoneMessage(actionMessage(action))).toEqual({
       ok: true,
       message: { v: 1, type: 'action', action },
@@ -55,6 +55,7 @@ describe('parsePhoneMessage', () => {
     { v: 1 },
     { v: 1, type: 'action' },
     { v: 1, type: 'action', action: { type: 'hack' } },
+    { v: 1, type: 'action', action: { type: 'spinEnded' } },
     { v: 1, type: 'action', action: { type: 'guessConsonant', letter: 'ST' } },
     { v: 1, type: 'action', action: { type: 'guessConsonant', letter: '' } },
     { v: 1, type: 'action', action: { type: 'guessConsonant' } },
