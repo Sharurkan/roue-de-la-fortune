@@ -22,14 +22,14 @@ const FULL_TURNS = 4;
 const MAX_OFFSET = 0.35;
 /** Rich jewel tones: lively without being neon. Two neighbours never share a colour. */
 const VALUE_COLORS = [
-  '#d7263d',
-  '#f46036',
-  '#e8a33d',
-  '#2a9d6f',
-  '#2e86de',
-  '#6c5ce7',
-  '#d63384',
-  '#1aa3a3',
+  '#e3122c',
+  '#ff6b1a',
+  '#f5b700',
+  '#006400',
+  '#1c7ce0',
+  '#6f3ad6',
+  '#e8247c',
+  '#0fa3a8',
 ];
 const DIGIT_STEP = 12.5;
 const GOLD = '#ffd23f';
@@ -37,6 +37,17 @@ const JACKPOT_FILL = GOLD;
 const POCKET_BLUE = '#1f5fbf';
 const POCKET_RED = '#d7263d';
 const FIRST_DIGIT_RADIUS = 82;
+/** Stacked words stop before the hub. */
+const LAST_LETTER_RADIUS = 22;
+/** Long words start closer to the rim, to keep their letters as big as possible. */
+const LONG_WORD_START = 88;
+const LONG_WORD_LENGTH = 7;
+/** Words stay a little smaller than the digits. */
+const WORD_MAX_SIZE = 11;
+const WORD_MAX_STEP = 10;
+const EURO_SCALE = 0.65;
+/** Below the small caption of a segment. */
+const CAPTION_TEXT_START = 76;
 
 /** What one segment of a wheel looks like. */
 export interface WheelFace {
@@ -74,7 +85,7 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
       case 'pass':
         return {
           fill: '#f7f4ea',
-          ink: '#15151a',
+          ink: POCKET_RED,
           label: { kind: 'word', text: TV_TEXTS.wheel.pass },
         };
       case 'value':
@@ -105,7 +116,7 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
         return {
           fill: JACKPOT_FILL,
           ink: '#ffffff',
-          label: { kind: 'word', text: String(segment.amount), size: 11 },
+          label: { kind: 'word', text: String(segment.amount), size: 8 },
           sides: { fill: '#15151a', ink: '#ffffff', text: TV_TEXTS.wheel.bankrupt, share: 0.25 },
         };
     }
@@ -126,13 +137,39 @@ function pointAt(angle: number, radius: number): string {
   return `${String(radius * Math.sin(radians))} ${String(-radius * Math.cos(radians))}`;
 }
 
-/** Values are written like on TV: one digit under the other, from the rim inwards. */
-function stackedLabel(text: string, color: string, leadInk = color): SVGTextElement[] {
+interface StackLayout {
+  /** Distance from the hub to the first character. */
+  start: number;
+  step: number;
+  size: number;
+}
+
+const DIGIT_LAYOUT: StackLayout = { start: FIRST_DIGIT_RADIUS, step: DIGIT_STEP, size: 15 };
+
+/** Long words shrink so that they fit between their start and the hub. */
+function wordLayout(length: number, start = FIRST_DIGIT_RADIUS, size?: number): StackLayout {
+  if (size !== undefined) return { start, step: size * 1.1, size };
+  const step = Math.min(WORD_MAX_STEP, (start - LAST_LETTER_RADIUS) / Math.max(length - 1, 1));
+  return { start, step, size: Math.min(WORD_MAX_SIZE, step * 1.2) };
+}
+
+/** Characters written like on TV: one under the other, from the rim inwards, upright. */
+function stackedLabel(
+  text: string,
+  color: string,
+  layout: StackLayout = DIGIT_LAYOUT,
+  leadInk = color,
+): SVGTextElement[] {
   return Array.from(text, (char, i) => {
+    // The euro sign reads as a unit, not a digit: it is drawn smaller.
+    const size = char === '€' ? layout.size * EURO_SCALE : layout.size;
     const digit = createSvgElement('text', {
-      y: -(FIRST_DIGIT_RADIUS - i * DIGIT_STEP),
+      y: -(layout.start - i * layout.step),
       fill: i === 0 ? leadInk : color,
       class: 'wheel-digit',
+      // The stylesheet sets the digit size; smaller words override it.
+      // Small letters get a thinner outline, so that they do not blur.
+      style: `font-size: ${String(size)}px; stroke-width: ${String(Math.min(1.6, size * 0.1))}px`,
       'text-anchor': 'middle',
       'dominant-baseline': 'central',
     });
@@ -142,12 +179,13 @@ function stackedLabel(text: string, color: string, leadInk = color): SVGTextElem
 }
 
 /** Long words do not fit stacked: they run along the radius instead. */
-function radialLabel(text: string, color: string, size?: number): SVGTextElement {
+/** Along the radius: only for the tiny bankrupt slices of the jackpot, too narrow to stack. */
+function radialLabel(text: string, color: string, size: number): SVGTextElement {
   const label = createSvgElement('text', {
     transform: 'translate(0 -56) rotate(-90)',
     fill: color,
     class: 'wheel-word',
-    'font-size': size ?? (text.length > 5 ? 9 : 12),
+    'font-size': size,
     'text-anchor': 'middle',
     'dominant-baseline': 'central',
   });
@@ -165,9 +203,17 @@ function envelopeIcon(): SVGGElement {
 function faceLabel(face: WheelFace): SVGElement[] {
   switch (face.label.kind) {
     case 'digits':
-      return stackedLabel(face.label.text, face.ink, face.label.leadInk);
+      return stackedLabel(face.label.text, face.ink, DIGIT_LAYOUT, face.label.leadInk);
     case 'word':
-      return [radialLabel(face.label.text, face.ink, face.label.size)];
+      return stackedLabel(
+        face.label.text,
+        face.ink,
+        wordLayout(
+          face.label.text.length,
+          face.label.text.length >= LONG_WORD_LENGTH ? LONG_WORD_START : FIRST_DIGIT_RADIUS,
+          face.label.size,
+        ),
+      );
     case 'envelope':
       return [envelopeIcon()];
     case 'caption':
@@ -191,16 +237,7 @@ function captionLabel(
     'dominant-baseline': 'central',
   });
   small.textContent = caption;
-  const main = createSvgElement('text', {
-    transform: 'translate(0 -59) rotate(-90)',
-    fill: ink,
-    class: 'wheel-word',
-    'font-size': 11,
-    'text-anchor': 'middle',
-    'dominant-baseline': 'central',
-  });
-  main.textContent = text;
-  return [small, main];
+  return [small, ...stackedLabel(text, ink, wordLayout(text.length, CAPTION_TEXT_START))];
 }
 
 function halfWedges(face: WheelFace, start: number, end: number): SVGElement[] {
@@ -213,6 +250,9 @@ function wedge(start: number, end: number, fill: string): SVGPathElement {
   return createSvgElement('path', {
     d: `M 0 0 L ${pointAt(start, RADIUS)} A ${String(RADIUS)} ${String(RADIUS)} 0 0 1 ${pointAt(end, RADIUS)} Z`,
     fill,
+    // A very thin black line between segments.
+    stroke: '#000000',
+    'stroke-width': 0.35,
   });
 }
 
@@ -227,34 +267,66 @@ function peg(angle: number, trim: string): SVGCircleElement {
 
 const SIDE_LABEL_SIZE = 3.4;
 
-function sideSlices(face: WheelFace, start: number, end: number, trim: string): SVGElement[] {
-  const { sides } = face;
-  if (sides === undefined) return [];
-  const width = (end - start) * sides.share;
-  const label = (angle: number): SVGGElement => {
-    const text = radialLabel(sides.text, sides.ink, SIDE_LABEL_SIZE);
-    // The usual outline would blur such small letters.
-    text.style.strokeWidth = '0.3px';
-    return createSvgElement('g', { transform: `rotate(${String(angle)})` }, [text]);
-  };
-  return [
-    wedge(start, start + width, sides.fill),
-    wedge(end - width, end, sides.fill),
-    label(start + width / 2),
-    label(end - width / 2),
-    peg(start + width, trim),
-    peg(end - width, trim),
-  ];
+/** Where the narrow side slices of a segment end, if it has any. */
+function sideBorders(face: WheelFace, start: number, end: number): [number, number] | null {
+  if (face.sides === undefined) return null;
+  const width = (end - start) * face.sides.share;
+  return [start + width, end - width];
 }
 
-function drawSegment(face: WheelFace, index: number, angle: number, trim: string): SVGGElement {
+function sideLabel(sides: NonNullable<WheelFace['sides']>, angle: number): SVGGElement {
+  const text = radialLabel(sides.text, sides.ink, SIDE_LABEL_SIZE);
+  // The usual outline would blur such small letters.
+  text.style.strokeWidth = '0.3px';
+  return createSvgElement('g', { transform: `rotate(${String(angle)})` }, [text]);
+}
+
+/** Colours of a segment, drawn under the shading. */
+function segmentBackground(face: WheelFace, index: number, angle: number): SVGGElement {
   const start = (index - 0.5) * angle;
   const end = (index + 0.5) * angle;
+  const borders = sideBorders(face, start, end);
+  const sides = face.sides;
   return createSvgElement('g', {}, [
     wedge(start, end, face.fill),
     ...halfWedges(face, start, end),
-    ...sideSlices(face, start, end, trim),
+    ...(borders === null || sides === undefined
+      ? []
+      : [wedge(start, borders[0], sides.fill), wedge(borders[1], end, sides.fill)]),
+  ]);
+}
+
+/**
+ * Light on one edge of the segment, shadow on the other. Drawn upright then
+ * rotated, so that one gradient serves every segment.
+ */
+function sheen(index: number, angle: number, sheenId: string): SVGGElement {
+  const overlay = wedge(-angle / 2, angle / 2, `url(#${sheenId})`);
+  overlay.setAttribute('stroke', 'none');
+  return createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, [overlay]);
+}
+
+/** Labels and pegs of a segment, drawn over the shading so that they stay crisp. */
+function segmentForeground(
+  face: WheelFace,
+  index: number,
+  angle: number,
+  trim: string,
+): SVGGElement {
+  const start = (index - 0.5) * angle;
+  const end = (index + 0.5) * angle;
+  const borders = sideBorders(face, start, end);
+  const sides = face.sides;
+  return createSvgElement('g', {}, [
     createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, faceLabel(face)),
+    ...(borders === null || sides === undefined
+      ? []
+      : [
+          sideLabel(sides, (start + borders[0]) / 2),
+          sideLabel(sides, (borders[1] + end) / 2),
+          peg(borders[0], trim),
+          peg(borders[1], trim),
+        ]),
     peg(start, trim),
   ]);
 }
@@ -262,12 +334,20 @@ function drawSegment(face: WheelFace, index: number, angle: number, trim: string
 let wheelCount = 0;
 
 /** Gradient ids must be unique in the page, and the TV shows two wheels. */
-function gradientIds(): { trim: string; shade: string } {
-  wheelCount += 1;
-  return { trim: `wheel-trim-${String(wheelCount)}`, shade: `wheel-shade-${String(wheelCount)}` };
+interface GradientIds {
+  trim: string;
+  shade: string;
+  depth: string;
+  sheen: string;
 }
 
-function drawDefs(ids: { trim: string; shade: string }): SVGDefsElement {
+function gradientIds(): GradientIds {
+  wheelCount += 1;
+  const id = (name: string) => `wheel-${name}-${String(wheelCount)}`;
+  return { trim: id('trim'), shade: id('shade'), depth: id('depth'), sheen: id('sheen') };
+}
+
+function drawDefs(ids: GradientIds): SVGDefsElement {
   const stop = (offset: string, color: string, opacity = 1) =>
     // CSS variables only work in style, not in SVG presentation attributes.
     createSvgElement('stop', {
@@ -281,10 +361,30 @@ function drawDefs(ids: { trim: string; shade: string }): SVGDefsElement {
       stop('100%', TRIM.dark),
     ]),
     // One light-to-shadow overlay over every segment gives the wheel its relief.
-    createSvgElement('radialGradient', { id: ids.shade, cx: '45%', cy: '40%', r: '60%' }, [
-      stop('0%', '#ffffff', 0.22),
-      stop('55%', '#ffffff', 0),
-      stop('100%', '#000000', 0.18),
+    createSvgElement('radialGradient', { id: ids.shade, cx: '40%', cy: '30%', r: '70%' }, [
+      stop('0%', '#ffffff', 0.12),
+      stop('45%', '#ffffff', 0),
+      stop('100%', '#000000', 0.22),
+    ]),
+    // Across one segment: shaded edges and a slightly raised middle (see sheen()).
+    createSvgElement(
+      'linearGradient',
+      { id: ids.sheen, gradientUnits: 'userSpaceOnUse', x1: -12, y1: 0, x2: 12, y2: 0 },
+      [
+        stop('0%', '#000000', 0.32),
+        stop('22%', '#000000', 0.1),
+        stop('50%', '#ffffff', 0.1),
+        stop('78%', '#000000', 0.1),
+        stop('100%', '#000000', 0.32),
+      ],
+    ),
+    // Along each segment: dark near the hub, full colour towards the rim, a bevel at the edge.
+    createSvgElement('radialGradient', { id: ids.depth, cx: '50%', cy: '50%', r: '50%' }, [
+      stop('0%', '#000000', 0.55),
+      stop('40%', '#000000', 0.25),
+      stop('78%', '#000000', 0),
+      stop('94%', '#000000', 0.05),
+      stop('100%', '#000000', 0.3),
     ]),
   ]);
 }
@@ -349,8 +449,11 @@ export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wh
   const ids = gradientIds();
   const trim = `url(#${ids.trim})`;
   const rotor = createSvgElement('g', {}, [
-    ...faces.map((face, index) => drawSegment(face, index, angle, trim)),
+    ...faces.map((face, index) => segmentBackground(face, index, angle)),
+    ...faces.map((_, index) => sheen(index, angle, ids.sheen)),
+    createSvgElement('circle', { r: RADIUS, fill: `url(#${ids.depth})` }),
     createSvgElement('circle', { r: RADIUS, fill: `url(#${ids.shade})` }),
+    ...faces.map((face, index) => segmentForeground(face, index, angle, trim)),
   ]);
   const pointer = drawPointer(trim);
   const element = createSvgElement('svg', { viewBox: '-112 -126 224 240', class: 'wheel' }, [

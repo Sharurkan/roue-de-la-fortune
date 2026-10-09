@@ -433,9 +433,9 @@
 .wheel-word {
   font-family: var(--font-game);
   font-weight: 800;
-  /* A thin dark outline keeps white digits readable on light segments. */
-  stroke: rgba(0, 0, 0, 0.35);
-  stroke-width: 1.2px;
+  /* A thin black outline keeps the digits readable on every segment colour. */
+  stroke: #000000;
+  stroke-width: 1.6px;
   paint-order: stroke;
 }
 
