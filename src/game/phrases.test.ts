@@ -1,71 +1,85 @@
 import { describe, expect, it } from 'vitest';
 import { layoutBoard } from './board';
 import { CONSONANTS, FINAL_GIVEN_LETTERS, VOWELS } from './config';
-import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from './phrases';
+import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES, type Phrase } from './phrases';
 import { normalizeText } from './text';
 
 const ALLOWED = /^[A-Z '\-,.!?&]+$/;
 
-describe('PHRASES', () => {
-  it('contains plenty of phrases', () => {
-    expect(PHRASES.length).toBeGreaterThanOrEqual(80);
-  });
+// One test per rule, listing every phrase that breaks it: a test per phrase would be thousands.
+function failing(list: readonly Phrase[], isValid: (text: string) => boolean): string[] {
+  return list.map((phrase) => phrase.text).filter((text) => !isValid(text));
+}
 
-  it.each(PHRASES.filter((phrase) => phrase.theme === 'Musique').map((phrase) => phrase.text))(
-    '%s gives two songs joined by &',
-    (text) => {
-      expect(text.split(' & ')).toHaveLength(2);
-    },
-  );
+function letters(text: string): string[] {
+  return Array.from(normalizeText(text)).filter((char) => /[A-Z]/.test(char));
+}
+
+function duplicates(list: readonly Phrase[]): string[] {
+  const seen = new Set<string>();
+  return list
+    .map((phrase) => normalizeText(phrase.text))
+    .filter((text) => {
+      const duplicate = seen.has(text);
+      seen.add(text);
+      return duplicate;
+    });
+}
+
+describe.each([
+  ['PHRASES', PHRASES],
+  ['FINAL_PHRASES', FINAL_PHRASES],
+  ['TOSS_UP_PHRASES', TOSS_UP_PHRASES],
+])('%s', (_name, list) => {
+  it('has at least 800 puzzles', () => {
+    expect(list.length).toBeGreaterThanOrEqual(800);
+  });
 
   it('has no duplicate', () => {
-    const texts = PHRASES.map((phrase) => normalizeText(phrase.text));
-    expect(new Set(texts).size).toBe(texts.length);
+    expect(duplicates(list)).toEqual([]);
   });
 
-  it.each(PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
-    expect(layoutBoard(text)).not.toBeNull();
+  it('fits on the board', () => {
+    expect(failing(list, (text) => layoutBoard(text) !== null)).toEqual([]);
   });
 
-  it.each(PHRASES.map((phrase) => phrase.text))('%s only uses supported characters', (text) => {
-    expect(normalizeText(text)).toMatch(ALLOWED);
+  it('only uses supported characters', () => {
+    expect(failing(list, (text) => ALLOWED.test(normalizeText(text)))).toEqual([]);
   });
 
-  it.each(PHRASES.map((phrase) => phrase.text))(
-    '%s has at least one consonant and one vowel',
-    (text) => {
-      const letters = Array.from(normalizeText(text));
-      expect(letters.some((char) => CONSONANTS.includes(char))).toBe(true);
-      expect(letters.some((char) => VOWELS.includes(char))).toBe(true);
-    },
-  );
+  it('has at least one consonant and one vowel', () => {
+    const hasBoth = (text: string): boolean =>
+      letters(text).some((char) => CONSONANTS.includes(char)) &&
+      letters(text).some((char) => VOWELS.includes(char));
+    expect(failing(list, hasBoth)).toEqual([]);
+  });
+});
+
+describe('PHRASES', () => {
+  it('has more than 1 000 puzzles', () => {
+    expect(PHRASES.length).toBeGreaterThan(1000);
+  });
+
+  it('gives two songs joined by & for the Musique theme', () => {
+    const music = PHRASES.filter((phrase) => phrase.theme === 'Musique');
+    expect(music.length).toBeGreaterThanOrEqual(100);
+    expect(failing(music, (text) => text.split(' & ').length === 2)).toEqual([]);
+  });
+
+  it('leaves short puzzles to the toss-up', () => {
+    expect(failing(PHRASES, (text) => text.split(/\s+/).length > 2)).toEqual([]);
+  });
 });
 
 describe('FINAL_PHRASES', () => {
-  it('contains enough answers to vary the final', () => {
-    expect(FINAL_PHRASES.length).toBeGreaterThanOrEqual(40);
+  it('is neither given away nor bare once R S T L N E are shown', () => {
+    const balanced = (text: string): boolean => {
+      const all = letters(text);
+      const share = all.filter((char) => FINAL_GIVEN_LETTERS.includes(char)).length / all.length;
+      return share >= 0.05 && share <= 0.25;
+    };
+    expect(failing(FINAL_PHRASES, balanced)).toEqual([]);
   });
-
-  it.each(FINAL_PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
-    expect(layoutBoard(text)).not.toBeNull();
-  });
-
-  it.each(FINAL_PHRASES.map((phrase) => phrase.text))(
-    '%s only uses supported characters',
-    (text) => {
-      expect(normalizeText(text)).toMatch(ALLOWED);
-    },
-  );
-
-  it.each(FINAL_PHRASES.map((phrase) => phrase.text))(
-    '%s is neither given away nor bare once R S T L N E are shown',
-    (text) => {
-      const letters = Array.from(normalizeText(text)).filter((char) => /[A-Z]/.test(char));
-      const given = letters.filter((char) => FINAL_GIVEN_LETTERS.includes(char)).length;
-      expect(given / letters.length).toBeGreaterThanOrEqual(0.05);
-      expect(given / letters.length).toBeLessThanOrEqual(0.25);
-    },
-  );
 
   it('never uses an expression nor a proverb', () => {
     const themes = FINAL_PHRASES.map((phrase) => phrase.theme);
@@ -75,29 +89,16 @@ describe('FINAL_PHRASES', () => {
 });
 
 describe('TOSS_UP_PHRASES', () => {
-  it('contains enough puzzles for many games', () => {
-    expect(TOSS_UP_PHRASES.length).toBeGreaterThanOrEqual(50);
+  it('has more than 1 000 puzzles', () => {
+    expect(TOSS_UP_PHRASES.length).toBeGreaterThan(1000);
   });
 
-  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))('%s has three words at most', (text) => {
-    expect(text.split(/\s+/).length).toBeLessThanOrEqual(3);
+  it('has three words at most', () => {
+    expect(failing(TOSS_UP_PHRASES, (text) => text.split(/\s+/).length <= 3)).toEqual([]);
   });
 
   it('shares no phrase with the other lists', () => {
-    const others = [...PHRASES, ...FINAL_PHRASES].map((phrase) => normalizeText(phrase.text));
-    const tossUps = TOSS_UP_PHRASES.map((phrase) => normalizeText(phrase.text));
-    expect(tossUps.filter((text) => others.includes(text))).toEqual([]);
-    expect(new Set(tossUps).size).toBe(tossUps.length);
+    const others = new Set([...PHRASES, ...FINAL_PHRASES].map((p) => normalizeText(p.text)));
+    expect(failing(TOSS_UP_PHRASES, (text) => !others.has(normalizeText(text)))).toEqual([]);
   });
-
-  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
-    expect(layoutBoard(text)).not.toBeNull();
-  });
-
-  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))(
-    '%s only uses supported characters',
-    (text) => {
-      expect(normalizeText(text)).toMatch(ALLOWED);
-    },
-  );
 });

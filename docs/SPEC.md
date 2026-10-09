@@ -107,7 +107,7 @@ Fin de manche
 
 Énigme rapide (avant chaque manche normale)
 
-- Énigme tirée d'une liste à part, de 3 mots au plus.
+- Énigme tirée d'une liste à part (plus de 1 000), de 3 mots au plus.
 - Une case au hasard se dévoile toutes les 1,5 s (`game/config.ts`), jusqu'à un buzz.
 - Un seul téléphone : les joueurs crient « Buzz ! », celui qui tient le téléphone touche l'équipe la plus rapide.
 - Un téléphone par équipe : chaque équipe buzze sur son téléphone.
@@ -127,7 +127,7 @@ Finale
 
 - Finaliste : l'équipe au plus gros total après 4 manches. Égalité : l'équipe ex æquo qui a gagné la 4e manche, sinon la première dans l'ordre.
 - Il tourne une petite roue de 8 enveloppes : 500 €, 1 000 €, 1 500 €, 2 000 €, 3 000 €, 5 000 €, Voyage, Bisou (dans `game/config.ts`). Le contenu reste caché jusqu'à la fin.
-- Énigme courte (objet, lieu, chanson, film, animal, personnage, cuisine), tirée d'une liste à part : jamais d'expression ni de proverbe. R S T L N E n'y font que 5 à 25 % des lettres, pour que la finale reste difficile.
+- Énigme courte (objet, lieu, chanson, film, animal, personnage, cuisine…), tirée d'une liste à part (environ 800 réponses, sans doublon même avec ou sans article) : jamais d'expression ni de proverbe. R S T L N E n'y font que 5 à 25 % des lettres, pour que la finale reste difficile.
 - R S T L N E sont révélées d'office (case bleue, puis lettre).
 - Le finaliste choisit 3 consonnes et 1 voyelle, gratuitement. Elles sont révélées ensemble une fois toutes choisies.
 - Une seule tentative de réponse, sans minuteur.
@@ -135,7 +135,7 @@ Finale
 
 Phrases
 
-- Liste intégrée d'environ 90 phrases en français, chacune avec un thème (Expression, Proverbe, Film, Cuisine, Lieu, Objet, Chanson, Animal, Personnage, Musique, Sport, Métier, Pays, Dessin animé).
+- Liste intégrée de plus de 1 000 phrases en français, de 3 mots au moins (les plus courtes vont aux énigmes rapides), chacune avec un thème parmi 31 (`game/phrases/theme.ts`) : Expression, Proverbe, Film, Cuisine, Lieu, Objet, Chanson, Animal, Personnage, Musique, Sport, Métier, Pays, Dessin animé, Série TV, Jeu vidéo, Personnage historique, Ville, Monument, Fruit et légume, Instrument, Vêtement, Dans la maison, Nature, Véhicule, Jeu de société, Fête, Super-héros, Livre, Corps humain, Boisson.
 - Thème Musique : deux chansons d'un même interprète, séparées par « & ». Le « & » est affiché d'office ; dans la réponse, on peut taper « & » ou « et ».
 - Pas de répétition dans une partie (ni pour les énigmes rapides). Si la liste est épuisée, on repart de zéro.
 - Normalisation : majuscules, accents retirés (É → E), ligatures dépliées (Œ → OE).
