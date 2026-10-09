@@ -241,6 +241,11 @@
   background: var(--trim-main);
 }
 
+/* Toss-up: teams that gave a wrong answer. */
+.team.out {
+  opacity: 0.35;
+}
+
 .team-name {
   font-family: var(--font-title);
   font-size: 3.2vh;

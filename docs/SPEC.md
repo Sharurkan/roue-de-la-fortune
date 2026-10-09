@@ -75,7 +75,18 @@ Fin de manche
 
 - Seule l'équipe gagnante ajoute son score de manche à son total.
 - Les scores de manche repartent à 0.
-- La manche suivante commence avec l'équipe suivante (rotation).
+- La manche suivante commence par une énigme rapide.
+
+Énigme rapide (avant chaque manche normale)
+
+- Énigme tirée d'une liste à part, un peu plus longue que celles de la finale.
+- Une case au hasard se dévoile toutes les 1,5 s (`game/config.ts`), jusqu'à un buzz.
+- Un seul téléphone : les joueurs crient « Buzz ! », celui qui tient le téléphone touche l'équipe la plus rapide.
+- Au buzz, les lettres s'arrêtent. L'équipe a un seul essai, sans minuteur ni annulation.
+- Bonne réponse : l'équipe commence la manche. Aucun gain.
+- Mauvaise réponse : l'équipe est éliminée de cette énigme, les lettres reprennent.
+- Panneau complet sans buzz : on attend quand même un buzz.
+- Toutes les équipes éliminées : la manche commence avec l'équipe de la rotation (équipe 1, puis 2…).
 
 Déroulé d'une partie
 
@@ -96,7 +107,7 @@ Finale
 Phrases
 
 - Liste intégrée d'environ 40 phrases en français, chacune avec un thème (Expression, Proverbe, Film, Cuisine, Lieu, Objet…).
-- Pas de répétition dans une partie. Si la liste est épuisée, on repart de zéro.
+- Pas de répétition dans une partie (ni pour les énigmes rapides). Si la liste est épuisée, on repart de zéro.
 - Normalisation : majuscules, accents retirés (É → E), ligatures dépliées (Œ → OE).
 - Apostrophes, tirets et ponctuation sont affichés d'office, jamais cachés.
 
@@ -116,6 +127,7 @@ Phrases
 
 - Affiche : manche, équipe active, son score, message en cours.
 - Configuration : nombre d'équipes, noms, bouton « Commencer ».
+- Énigme rapide : un gros bouton par équipe (équipes éliminées grisées), puis saisie de la réponse.
 - Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
 - Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
 - Saisie de la solution avec « Valider » et « Annuler ».
@@ -126,7 +138,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 2.
+- Version actuelle du protocole : 3.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

@@ -32,8 +32,9 @@ import {
   hasHiddenConsonants,
   hasHiddenVowels,
 } from './selectors';
-import type { GameAction, GameState, PlayingState, Round, Team } from './state';
+import type { GameAction, GameState, PlayingState, Round } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
+import { buzz, revealTossUpLetter, startTossUp, submitTossUpAnswer } from './toss-up';
 
 export type { GameDeps, ReduceResult } from './common';
 
@@ -41,6 +42,10 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
   switch (action.type) {
     case 'startGame':
       return startGame(state, action.teamNames, deps);
+    case 'revealTossUpLetter':
+      return state.phase === 'tossUp' ? revealTossUpLetter(state) : reject(state, 'wrongPhase');
+    case 'buzz':
+      return state.phase === 'tossUp' ? buzz(state, action.team) : reject(state, 'wrongPhase');
     case 'spin':
       return spin(state, deps);
     case 'spinEnded':
@@ -54,7 +59,7 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
     case 'startSolving':
       return startSolving(state);
     case 'submitSolution':
-      return submitSolution(state, action.answer);
+      return submitSolution(state, action.answer, deps);
     case 'cancel':
       return cancel(state);
     case 'nextRound':
@@ -81,33 +86,7 @@ function startGame(state: GameState, teamNames: string[], deps: GameDeps): Reduc
     roundScore: 0,
     totalScore: 0,
   }));
-  return startRound(teams, 1, [], 0, deps);
-}
-
-function startRound(
-  teams: Team[],
-  roundNumber: number,
-  usedPhraseIndexes: number[],
-  startingTeam: number,
-  deps: GameDeps,
-): ReduceResult {
-  const used = usedPhraseIndexes.length >= deps.phrases.length ? [] : usedPhraseIndexes;
-  const available = deps.phrases.map((_, index) => index).filter((index) => !used.includes(index));
-  const phraseIndex = available[pickIndex(deps.random, available.length)];
-  const phrase = phraseIndex === undefined ? undefined : deps.phrases[phraseIndex];
-  if (phraseIndex === undefined || phrase === undefined) throw new Error('No phrase available');
-  const round: Round = { phrase, guessedLetters: [], activeTeam: startingTeam, startingTeam };
-  return {
-    state: {
-      phase: 'playing',
-      step: { kind: 'choosing' },
-      teams,
-      roundNumber,
-      usedPhraseIndexes: [...used, phraseIndex],
-      round,
-    },
-    events: [{ type: 'roundStarted', roundNumber }],
-  };
+  return startTossUp({ teams, roundNumber: 1, usedPhraseIndexes: [], usedTossUpIndexes: [] }, deps);
 }
 
 function isChoosing(state: GameState): state is PlayingState & { step: { kind: 'choosing' } } {
@@ -228,8 +207,9 @@ function startSolving(state: GameState): ReduceResult {
   return { state: { ...state, step: { kind: 'solving' } }, events: [] };
 }
 
-function submitSolution(state: GameState, answer: string): ReduceResult {
+function submitSolution(state: GameState, answer: string, deps: GameDeps): ReduceResult {
   if (state.phase === 'final') return submitFinalAnswer(state, answer);
+  if (state.phase === 'tossUp') return submitTossUpAnswer(state, answer, deps);
   if (state.phase !== 'playing' || state.step.kind !== 'solving') {
     return reject(state, 'wrongPhase');
   }
@@ -253,6 +233,7 @@ function submitSolution(state: GameState, answer: string): ReduceResult {
       teams,
       roundNumber: state.roundNumber,
       usedPhraseIndexes: state.usedPhraseIndexes,
+      usedTossUpIndexes: state.usedTossUpIndexes,
       round: state.round,
     },
     events: [{ type: 'roundWon', team: winner, amount }],
@@ -269,16 +250,13 @@ function cancel(state: GameState): ReduceResult {
   return { state: { ...state, step: { kind: 'choosing' } }, events: [] };
 }
 
-/** After the last regular round, "next" leads to the final. */
+/** Each regular round opens with a toss-up. After the last one, "next" leads to the final. */
 function nextRound(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
   if (state.roundNumber >= ROUND_COUNT) return startFinal(state, deps);
-  const startingTeam = (state.round.startingTeam + 1) % state.teams.length;
-  return startRound(
-    state.teams,
-    state.roundNumber + 1,
-    state.usedPhraseIndexes,
-    startingTeam,
+  const { teams, usedPhraseIndexes, usedTossUpIndexes } = state;
+  return startTossUp(
+    { teams, roundNumber: state.roundNumber + 1, usedPhraseIndexes, usedTossUpIndexes },
     deps,
   );
 }

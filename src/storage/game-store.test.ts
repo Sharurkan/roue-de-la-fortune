@@ -20,6 +20,7 @@ const DEPS: GameDeps = {
   random: () => 0,
   phrases: [{ theme: 'Film', text: 'Le Roi lion' }],
   finalPhrases: [{ theme: 'Objet', text: 'Une tondeuse' }],
+  tossUpPhrases: [{ theme: 'Lieu', text: 'La tour Eiffel' }],
 };
 
 function play(actions: GameAction[]): GameState {
@@ -28,13 +29,25 @@ function play(actions: GameAction[]): GameState {
   return state;
 }
 
-const START: GameAction = { type: 'startGame', teamNames: ['Rouges', 'Bleus', 'Verts'] };
+const WIN_TOSS_UP: GameAction[] = [
+  { type: 'buzz', team: 0 },
+  { type: 'submitSolution', answer: 'la tour eiffel' },
+];
+const START_GAME: GameAction = { type: 'startGame', teamNames: ['Rouges', 'Bleus', 'Verts'] };
+const START: GameAction[] = [START_GAME, ...WIN_TOSS_UP];
 const WIN_ROUND: GameAction[] = [
   { type: 'startSolving' },
   { type: 'submitSolution', answer: 'le roi lion' },
   { type: 'nextRound' },
 ];
-const TO_FINAL: GameAction[] = [START, ...WIN_ROUND, ...WIN_ROUND, ...WIN_ROUND, ...WIN_ROUND];
+const NEXT_ROUND: GameAction[] = [...WIN_ROUND, ...WIN_TOSS_UP];
+const TO_FINAL: GameAction[] = [
+  ...START,
+  ...NEXT_ROUND,
+  ...NEXT_ROUND,
+  ...NEXT_ROUND,
+  ...WIN_ROUND,
+];
 const PICKS: GameAction[] = [
   { type: 'guessConsonant', letter: 'D' },
   { type: 'guessConsonant', letter: 'B' },
@@ -61,15 +74,23 @@ describe('game store', () => {
   it.each([
     ['setup', []],
     [
-      'a turn',
-      [START, { type: 'spin' }, { type: 'spinEnded' }, { type: 'guessConsonant', letter: 'L' }],
+      'a toss-up, letters shown',
+      [START_GAME, { type: 'revealTossUpLetter' }, { type: 'revealTossUpLetter' }],
     ],
-    ['a spinning wheel', [START, { type: 'spin' }]],
+    [
+      'a toss-up, after a wrong answer',
+      [START_GAME, { type: 'buzz', team: 1 }, { type: 'submitSolution', answer: 'non' }],
+    ],
+    [
+      'a turn',
+      [...START, { type: 'spin' }, { type: 'spinEnded' }, { type: 'guessConsonant', letter: 'L' }],
+    ],
+    ['a spinning wheel', [...START, { type: 'spin' }]],
     [
       'the end of a round',
-      [START, { type: 'startSolving' }, { type: 'submitSolution', answer: 'le roi lion' }],
+      [...START, { type: 'startSolving' }, { type: 'submitSolution', answer: 'le roi lion' }],
     ],
-    ['an abandoned game', [START, { type: 'abandonGame' }]],
+    ['an abandoned game', [...START, { type: 'abandonGame' }]],
     [
       'the final, letters being picked',
       [
@@ -106,10 +127,18 @@ describe('game store', () => {
   });
 
   it('rejects an inconsistent state', () => {
-    const state = play([START]);
+    const state = play(START);
     if (state.phase !== 'playing') throw new Error('Expected playing');
     const broken = { ...state, round: { ...state.round, activeTeam: 7 } };
-    storage.setItem('rdlf.game', JSON.stringify({ v: 2, state: broken }));
+    storage.setItem('rdlf.game', JSON.stringify({ v: 3, state: broken }));
+    expect(loadGame()).toEqual({ kind: 'unreadable' });
+  });
+
+  it('rejects a toss-up with an unknown buzzer', () => {
+    const state = play([START_GAME]);
+    if (state.phase !== 'tossUp') throw new Error('Expected tossUp');
+    const broken = { ...state, tossUp: { ...state.tossUp, buzzer: 5 } };
+    storage.setItem('rdlf.game', JSON.stringify({ v: 3, state: broken }));
     expect(loadGame()).toEqual({ kind: 'unreadable' });
   });
 

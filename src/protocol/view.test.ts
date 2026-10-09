@@ -6,8 +6,15 @@ import { normalizeText } from '../game/text';
 import { parseTvMessage, stateMessage } from './messages';
 import { toPublicView } from './view';
 
+const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
+
 function deps(phrase: Phrase, random = 0): GameDeps {
-  return { random: () => random, phrases: [phrase], finalPhrases: [phrase] };
+  return {
+    random: () => random,
+    phrases: [phrase],
+    finalPhrases: [phrase],
+    tossUpPhrases: [TOSS_UP],
+  };
 }
 
 function play(phrase: Phrase, actions: GameAction[], random = 0): GameState {
@@ -16,7 +23,12 @@ function play(phrase: Phrase, actions: GameAction[], random = 0): GameState {
   return state;
 }
 
-const START: GameAction = { type: 'startGame', teamNames: ['Rouges', 'Bleus'] };
+const START_GAME: GameAction = { type: 'startGame', teamNames: ['Rouges', 'Bleus'] };
+const START: GameAction[] = [
+  START_GAME,
+  { type: 'buzz', team: 0 },
+  { type: 'submitSolution', answer: TOSS_UP.text },
+];
 
 describe('toPublicView', () => {
   it('describes the setup', () => {
@@ -27,7 +39,7 @@ describe('toPublicView', () => {
 
   it('describes a turn: active team, scores and what can be done', () => {
     const phrase = PHRASES[0] ?? { theme: 'Objet', text: 'Le Roi lion' };
-    const view = toPublicView(play(phrase, [START]), [{ type: 'roundStarted', roundNumber: 1 }]);
+    const view = toPublicView(play(phrase, START), [{ type: 'roundStarted', roundNumber: 1 }]);
     expect(view).toMatchObject({
       phase: 'playing',
       roundNumber: 1,
@@ -42,7 +54,7 @@ describe('toPublicView', () => {
 
   it('gives the consonant value after the wheel stops', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
-    const state = play(phrase, [START, { type: 'spin' }, { type: 'spinEnded' }]);
+    const state = play(phrase, [...START, { type: 'spin' }, { type: 'spinEnded' }]);
     expect(toPublicView(state, [])).toMatchObject({
       step: 'guessingConsonant',
       consonantValue: 300,
@@ -53,7 +65,7 @@ describe('toPublicView', () => {
   it('describes the end of the game with a ranking', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [
-      START,
+      ...START,
       { type: 'startSolving' },
       { type: 'submitSolution', answer: 'le roi lion' },
       { type: 'abandonGame' },
@@ -66,17 +78,17 @@ describe('toPublicView', () => {
 
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
-    const state = play(phrase, [START, { type: 'spin' }]);
+    const state = play(phrase, [...START, { type: 'spin' }]);
     const view = toPublicView(state, [{ type: 'wheelSpun', segmentIndex: 0 }]);
     expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
   });
 
   it.each(PHRASES)('never reveals "$text" nor its theme', (phrase) => {
     const states = [
-      play(phrase, [START]),
-      play(phrase, [START, { type: 'startSolving' }, { type: 'submitSolution', answer: 'x' }]),
+      play(phrase, START),
+      play(phrase, [...START, { type: 'startSolving' }, { type: 'submitSolution', answer: 'x' }]),
       play(phrase, [
-        START,
+        ...START,
         { type: 'startSolving' },
         { type: 'submitSolution', answer: phrase.text },
       ]),
@@ -89,6 +101,42 @@ describe('toPublicView', () => {
     }
   });
 
+  describe('toss-up', () => {
+    const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
+
+    it('lets every team buzz while the letters appear', () => {
+      const view = toPublicView(play(phrase, [START_GAME, { type: 'revealTossUpLetter' }]), []);
+      expect(view).toMatchObject({
+        phase: 'tossUp',
+        roundNumber: 1,
+        step: 'buzzing',
+        activeTeam: null,
+        eliminatedTeams: [],
+      });
+      expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+    });
+
+    it('shows who answers, then who is out', () => {
+      const buzzed: GameAction[] = [START_GAME, { type: 'buzz', team: 1 }];
+      expect(toPublicView(play(phrase, buzzed), [])).toMatchObject({
+        step: 'solving',
+        activeTeam: 1,
+      });
+      const wrong = play(phrase, [...buzzed, { type: 'submitSolution', answer: 'non' }]);
+      expect(toPublicView(wrong, [])).toMatchObject({
+        step: 'buzzing',
+        activeTeam: null,
+        eliminatedTeams: [1],
+      });
+    });
+
+    it('never reveals the toss-up phrase nor its theme', () => {
+      const json = JSON.stringify(toPublicView(play(phrase, [START_GAME]), []));
+      expect(json.toUpperCase()).not.toContain('EIFFEL');
+      expect(json).not.toContain(TOSS_UP.theme);
+    });
+  });
+
   describe('final round', () => {
     const phrase: Phrase = { theme: 'Objet', text: 'Une tondeuse' };
     const winRound: GameAction[] = [
@@ -96,7 +144,12 @@ describe('toPublicView', () => {
       { type: 'submitSolution', answer: 'une tondeuse' },
       { type: 'nextRound' },
     ];
-    const toFinal: GameAction[] = [START, ...winRound, ...winRound, ...winRound, ...winRound];
+    const winTossUp: GameAction[] = [
+      { type: 'buzz', team: 0 },
+      { type: 'submitSolution', answer: TOSS_UP.text },
+    ];
+    const nextRound = [...winRound, ...winTossUp];
+    const toFinal: GameAction[] = [...START, ...nextRound, ...nextRound, ...nextRound, ...winRound];
     const picks: GameAction[] = [
       { type: 'guessConsonant', letter: 'D' },
       { type: 'guessConsonant', letter: 'B' },
@@ -108,8 +161,8 @@ describe('toPublicView', () => {
       expect(toPublicView(play(phrase, toFinal), [])).toMatchObject({
         phase: 'final',
         step: 'prizeWheel',
-        // All totals are tied at 0: the winner of round 4 (team 2) goes to the final.
-        activeTeam: 1,
+        // All totals are tied at 0: the winner of round 4 (team 1) goes to the final.
+        activeTeam: 0,
         canSpin: true,
       });
     });
@@ -124,7 +177,7 @@ describe('toPublicView', () => {
 
     it('greys out R S T L N E and counts the picks left', () => {
       const actions: GameAction[] = [...toFinal, { type: 'spin' }, { type: 'spinEnded' }];
-      const view = toPublicView(play(phrase, [...actions, picks[0] ?? START]), []);
+      const view = toPublicView(play(phrase, [...actions, picks[0] ?? START_GAME]), []);
       expect(view.guessedLetters).toEqual(['R', 'S', 'T', 'L', 'N', 'E', 'D']);
       expect(view.finalPicks).toEqual({ consonants: 2, vowels: 1 });
     });
@@ -139,7 +192,7 @@ describe('toPublicView', () => {
       ];
       const view = toPublicView(play(phrase, actions), []);
       expect(view.finalResult).toEqual({
-        finalist: 1,
+        finalist: 0,
         won: true,
         prize: { kind: 'money', amount: 500 },
       });

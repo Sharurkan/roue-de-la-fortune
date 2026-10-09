@@ -21,6 +21,10 @@ export const PHONE_TEXTS = {
   teamPlaceholder: (index: number) => `Équipe ${String(index + 1)}`,
   start: 'Commencer',
   round: (roundNumber: number) => `Manche ${String(roundNumber)}`,
+  tossUp: 'Énigme rapide',
+  whoBuzzed: 'Qui a buzzé en premier ?',
+  buzzHint: 'Criez « Buzz ! », puis touchez votre équipe',
+  tossUpAnswer: (name: string) => `${name} : ta réponse`,
   activeTeam: (name: string, score: number) => `${name} : ${euros(score)}`,
   spin: 'Tourner la roue',
   buyVowel: (cost: number) => `Acheter une voyelle (${euros(cost)})`,
@@ -87,10 +91,22 @@ const REJECTIONS: Record<RejectionReason, string> = {
   noVowelsLeft: "Il n'y a plus de voyelles",
   invalidAnswer: 'Réponse vide ou trop longue',
   noPicksLeft: 'Tu as déjà choisi toutes les lettres de ce type',
+  invalidTeam: 'Équipe inconnue',
+  teamEliminated: 'Cette équipe a déjà répondu',
 };
 
 function eventMessage(event: GameEvent, teamName: (team: number) => string): string | null {
   switch (event.type) {
+    case 'tossUpStarted':
+      return 'Énigme rapide : buzzez dès que vous savez !';
+    case 'buzzed':
+      return `${teamName(event.team)} a buzzé`;
+    case 'tossUpWrong':
+      return `Raté pour ${teamName(event.team)}`;
+    case 'tossUpWon':
+      return `${teamName(event.team)} commence la manche !`;
+    case 'tossUpFailed':
+      return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'bankrupt':
       return `Banqueroute pour ${teamName(event.team)} !`;
     case 'landedOnPass':
@@ -124,6 +140,7 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
     case 'finalLost':
       return 'Mauvaise réponse';
     case 'roundStarted':
+    case 'tossUpLetterRevealed':
     case 'wheelSpun':
     case 'vowelBought':
     case 'prizeWheelSpun':

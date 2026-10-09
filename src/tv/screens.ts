@@ -1,7 +1,14 @@
 import { FINAL_PRIZES, WHEEL_SEGMENTS } from '../game/config';
 import { finalRevealedLetters } from '../game/final';
 import type { RankedTeam } from '../game/ranking';
-import type { FinalResult, FinalState, PlayingState, RoundOverState, Team } from '../game/state';
+import type {
+  FinalResult,
+  FinalState,
+  PlayingState,
+  RoundOverState,
+  Team,
+  TossUpState,
+} from '../game/state';
 import { createElement } from '../shared/dom';
 import { createBoard, type Board } from './board';
 import { createQrCode } from './qr';
@@ -62,8 +69,10 @@ export interface GameScreen {
   showMessage(text: string): void;
   /** Brief red flash of the whole screen. */
   flash(): void;
-  render(state: PlayingState | RoundOverState | FinalState): void;
+  render(state: BoardState): void;
 }
+
+export type BoardState = TossUpState | PlayingState | RoundOverState | FinalState;
 
 /** Plays a CSS animation again, even if the class is already there. */
 function restartAnimation(element: HTMLElement, className: string): void {
@@ -72,10 +81,20 @@ function restartAnimation(element: HTMLElement, className: string): void {
   element.classList.add(className);
 }
 
-function renderTeams(container: HTMLElement, teams: readonly Team[], active: number | null): void {
+function teamClass(index: number, active: number | null, out: readonly number[]): string {
+  if (index === active) return 'team active';
+  return out.includes(index) ? 'team out' : 'team';
+}
+
+function renderTeams(
+  container: HTMLElement,
+  teams: readonly Team[],
+  active: number | null,
+  out: readonly number[] = [],
+): void {
   container.replaceChildren(
     ...teams.map((team, index) =>
-      createElement('div', { className: index === active ? 'team active' : 'team' }, [
+      createElement('div', { className: teamClass(index, active, out) }, [
         createElement('div', { className: 'team-name', text: team.name }),
         createElement('div', { className: 'team-scores' }, [
           createElement('div', { className: 'team-round', text: TV_TEXTS.euros(team.roundScore) }),
@@ -124,9 +143,28 @@ export function createGameScreen(onTick: () => void): GameScreen {
     hint.textContent = state.step.kind === 'pickingLetters' ? TV_TEXTS.finalHint : '';
   }
 
-  function render(state: PlayingState | RoundOverState | FinalState): void {
+  function renderTossUp(state: TossUpState): void {
+    wheel.element.classList.remove('is-hidden');
+    prizeWheel.element.classList.add('is-hidden');
+    const { tossUp } = state;
+    header.textContent = TV_TEXTS.tossUp(state.roundNumber);
+    theme.textContent = tossUp.phrase.theme;
+    if (board.phrase() !== tossUp.phrase.text) {
+      board.setPhrase(tossUp.phrase.text, [], tossUp.revealOrder.slice(0, tossUp.revealedCount));
+    }
+    board.element.classList.remove('won');
+    renderTeams(teams, state.teams, tossUp.buzzer, tossUp.eliminated);
+    letters.textContent = '';
+    hint.textContent = tossUp.buzzer === null ? TV_TEXTS.tossUpHint : '';
+  }
+
+  function render(state: BoardState): void {
     if (state.phase === 'final') {
       renderFinal(state);
+      return;
+    }
+    if (state.phase === 'tossUp') {
+      renderTossUp(state);
       return;
     }
     wheel.element.classList.remove('is-hidden');

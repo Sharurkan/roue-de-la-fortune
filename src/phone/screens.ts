@@ -153,17 +153,16 @@ function cancelButton(context: ScreenContext): HTMLButtonElement {
   );
 }
 
-/** The final allows a single try: no way back, so no cancel button. */
-function solvingScreen(context: ScreenContext, isFinal = false): HTMLElement {
+/** The final and the toss-up allow a single try: no way back, so no cancel button. */
+function solvingScreen(context: ScreenContext, label: string, canCancel: boolean): HTMLElement {
   const input = createElement('input', { className: 'text-input' });
   input.autocomplete = 'off';
   const validate = createElement('button', { className: 'big-button', text: texts.validate });
   validate.disabled = !context.enabled;
-  const label = isFinal ? texts.finalAnswer : texts.solutionLabel;
   const form = createElement('form', { className: 'screen' }, [
     createElement('label', { className: 'label', text: label }, [input]),
     validate,
-    ...(isFinal ? [] : [cancelButton(context)]),
+    ...(canCancel ? [cancelButton(context)] : []),
   ]);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -198,6 +197,28 @@ function confirmButton(context: ScreenContext, action: ConfirmableAction): HTMLB
     },
     { className: 'secondary-button', disabled: !context.enabled },
   );
+}
+
+/** One phone for everyone: players shout, and the phone holder taps the fastest team. */
+function buzzScreen(context: ScreenContext, eliminatedTeams: readonly number[]): HTMLElement {
+  const teams = context.view.teams.map((team, index) =>
+    button(
+      team.name,
+      () => {
+        context.send({ type: 'buzz', team: index });
+      },
+      {
+        className: 'big-button buzz-button',
+        disabled: !context.enabled || eliminatedTeams.includes(index),
+      },
+    ),
+  );
+  return createElement('div', { className: 'screen' }, [
+    createElement('p', { className: 'headline', text: texts.whoBuzzed }),
+    note(texts.buzzHint),
+    ...teams,
+    confirmButton(context, 'abandonGame'),
+  ]);
 }
 
 function roundOverScreen(
@@ -292,6 +313,14 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
   switch (screen.kind) {
     case 'setup':
       return setupScreen(context);
+    case 'buzzing':
+      return buzzScreen(context, screen.eliminatedTeams);
+    case 'tossUpSolving':
+      return solvingScreen(
+        context,
+        texts.tossUpAnswer(context.view.teams[screen.team]?.name ?? ''),
+        false,
+      );
     case 'turn':
       return createElement('div', { className: 'screen' }, [
         ...turnButtons(context, screen.canSpin, screen.canBuyVowel),
@@ -316,7 +345,7 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
         cancelButton(context),
       ]);
     case 'solving':
-      return solvingScreen(context);
+      return solvingScreen(context, texts.solutionLabel, true);
     case 'roundOver':
       return roundOverScreen(context, screen.winner, screen.isLastRound);
     case 'prizeWheel':
@@ -326,7 +355,7 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
     case 'finalPicking':
       return finalPickingScreen(context, screen.consonantsLeft, screen.vowelsLeft);
     case 'finalSolving':
-      return solvingScreen(context, true);
+      return solvingScreen(context, texts.finalAnswer, false);
     case 'gameOver':
       return gameOverScreen(context);
   }

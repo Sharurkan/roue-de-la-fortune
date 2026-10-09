@@ -1,6 +1,7 @@
 import './tv.css';
 import type { GameEvent } from '../game/events';
-import { FINAL_PHRASES, PHRASES } from '../game/phrases';
+import { TOSS_UP_REVEAL_INTERVAL_MS } from '../game/config';
+import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from '../game/phrases';
 import { rankTeams } from '../game/ranking';
 import { reduce, type GameDeps, type ReduceResult } from '../game/reducer';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
@@ -28,9 +29,12 @@ const GAME_DEPS: GameDeps = {
   random: Math.random,
   phrases: PHRASES,
   finalPhrases: FINAL_PHRASES,
+  tossUpPhrases: TOSS_UP_PHRASES,
 };
 /** After the final answer, the whole board and the envelope stay on screen a while. */
 const FINAL_RESULT_PAUSE_MS = 6000;
+/** After the toss-up, its answer stays on screen before the round board appears. */
+const TOSS_UP_RESULT_PAUSE_MS = 3000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,6 +43,8 @@ function wait(ms: number): Promise<void> {
 /** The phrase shown on the board, if the state has one. */
 function boardPhrase(state: GameState): string | null {
   switch (state.phase) {
+    case 'tossUp':
+      return state.tossUp.phrase.text;
     case 'playing':
     case 'roundOver':
       return state.round.phrase.text;
@@ -69,6 +75,15 @@ function interruptedSpin(state: GameState): GameEvent[] {
     return prizeIndex === null ? [] : [{ type: 'prizeWheelSpun', prizeIndex }];
   }
   return [];
+}
+
+/** Toss-up letters keep coming until a team buzzes or the board is full. */
+function needsTossUpLetter(state: GameState): boolean {
+  return (
+    state.phase === 'tossUp' &&
+    state.tossUp.buzzer === null &&
+    state.tossUp.revealedCount < state.tossUp.revealOrder.length
+  );
 }
 
 function teamNameIn(state: GameState): (team: number) => string {
@@ -113,6 +128,7 @@ export function startTv(root: HTMLElement): void {
   let code = initialRoomCode();
   let connection: ConnectionStatus = { kind: 'waiting' };
   let presentation: Promise<void> = Promise.resolve();
+  let tossUpTimer: ReturnType<typeof setTimeout> | undefined;
 
   function updateCorner(): void {
     const soundHint = sound !== null && !sound.isUnlocked() ? TV_TEXTS.soundHint : '';
@@ -137,9 +153,7 @@ export function startTv(root: HTMLElement): void {
     setup.element.hidden = current.phase !== 'setup';
     game.element.hidden = boardPhrase(current) === null;
     final.element.hidden = current.phase !== 'gameOver';
-    if (current.phase === 'playing' || current.phase === 'roundOver' || current.phase === 'final') {
-      game.render(current);
-    }
+    if (current.phase !== 'setup' && current.phase !== 'gameOver') game.render(current);
     if (current.phase === 'gameOver') {
       final.render(current.teams, rankTeams(current.teams), current.final);
     }
@@ -163,7 +177,24 @@ export function startTv(root: HTMLElement): void {
         game.flash();
         return;
       case 'roundStarted':
+      case 'tossUpStarted':
         sound?.roundStart();
+        return;
+      case 'tossUpLetterRevealed':
+        game.board.revealTile(event.tileIndex);
+        sound?.pop();
+        return;
+      case 'buzzed':
+        sound?.buzz();
+        return;
+      case 'tossUpWrong':
+        sound?.absent();
+        return;
+      case 'tossUpWon':
+      case 'tossUpFailed':
+        game.board.revealAll();
+        if (event.type === 'tossUpWon') sound?.win();
+        await wait(TOSS_UP_RESULT_PAUSE_MS);
         return;
       case 'roundWon':
         game.board.revealAll();
@@ -195,14 +226,26 @@ export function startTv(root: HTMLElement): void {
   async function present(result: ReduceResult): Promise<void> {
     const { state: next, events } = result;
     const phrase = boardPhrase(next);
-    if (phrase !== null && game.board.phrase() !== phrase) render(next);
+    // The toss-up answer is shown first: the new round board comes after the pause.
+    const endsTossUp = events.some((e) => e.type === 'tossUpWon' || e.type === 'tossUpFailed');
+    if (phrase !== null && game.board.phrase() !== phrase && !endsTossUp) render(next);
     const banner = bannerText(result);
     if (banner !== null) game.showMessage(banner);
     for (const event of events) await animate(event);
     render(next);
   }
 
+  /** Waits for the animations, then shows the next toss-up letter if nobody has buzzed. */
+  function scheduleTossUpLetter(): void {
+    clearTimeout(tossUpTimer);
+    if (!needsTossUpLetter(state)) return;
+    tossUpTimer = setTimeout(() => {
+      if (needsTossUpLetter(state)) dispatch({ type: 'revealTossUpLetter' });
+    }, TOSS_UP_REVEAL_INTERVAL_MS);
+  }
+
   function dispatch(action: GameAction): void {
+    clearTimeout(tossUpTimer);
     const result = reduce(state, action, GAME_DEPS);
     state = result.state;
     warnings.game = saveGame(state) ? '' : TV_TEXTS.saveFailed;
@@ -213,7 +256,8 @@ export function startTv(root: HTMLElement): void {
       .then(() => present(result))
       .catch(() => {
         render(state);
-      });
+      })
+      .then(scheduleTossUpLetter);
   }
 
   const host = startHost<PhoneMessage, TvMessage>({
@@ -269,5 +313,6 @@ export function startTv(root: HTMLElement): void {
     game.showMessage(TV_TEXTS.gameResumed);
     const events = interruptedSpin(state);
     if (events.length > 0) presentation = present({ state, events });
+    scheduleTossUpLetter();
   }
 }

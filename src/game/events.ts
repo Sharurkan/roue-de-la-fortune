@@ -7,9 +7,17 @@ export type RejectionReason =
   | 'noConsonantsLeft'
   | 'noVowelsLeft'
   | 'invalidAnswer'
-  | 'noPicksLeft';
+  | 'noPicksLeft'
+  | 'invalidTeam'
+  | 'teamEliminated';
 
 export type GameEvent =
+  | { type: 'tossUpStarted'; roundNumber: number }
+  | { type: 'tossUpLetterRevealed'; tileIndex: number }
+  | { type: 'buzzed'; team: number }
+  | { type: 'tossUpWrong'; team: number; answer: string }
+  | { type: 'tossUpWon'; team: number }
+  | { type: 'tossUpFailed'; team: number }
   | { type: 'roundStarted'; roundNumber: number }
   | { type: 'wheelSpun'; segmentIndex: number }
   | { type: 'bankrupt'; team: number }

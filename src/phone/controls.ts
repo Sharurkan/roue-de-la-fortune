@@ -4,6 +4,8 @@ import type { PublicView } from '../protocol/view';
 /** What the phone shows, derived only from the public view sent by the TV. */
 export type PhoneScreen =
   | { kind: 'setup' }
+  | { kind: 'buzzing'; eliminatedTeams: number[] }
+  | { kind: 'tossUpSolving'; team: number }
   | {
       kind: 'turn';
       canSpin: boolean;
@@ -33,6 +35,7 @@ function roundScreen(view: PublicView): PhoneScreen {
     case 'solving':
       return { kind: 'solving' };
     case 'choosing':
+    case 'buzzing':
     case 'prizeWheel':
     case 'prizeSpinning':
     case 'pickingLetters':
@@ -68,6 +71,10 @@ export function describeScreen(view: PublicView): PhoneScreen {
   switch (view.phase) {
     case 'setup':
       return { kind: 'setup' };
+    case 'tossUp':
+      return view.activeTeam === null
+        ? { kind: 'buzzing', eliminatedTeams: view.eliminatedTeams }
+        : { kind: 'tossUpSolving', team: view.activeTeam };
     case 'playing':
       return roundScreen(view);
     case 'roundOver':

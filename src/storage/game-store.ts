@@ -5,7 +5,7 @@ import type { GameState } from '../game/state';
 
 const GAME_KEY = 'rdlf.game';
 /** Bump when the saved shape changes: older saves are then dropped instead of misread. */
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 const count = z.int().check(z.minimum(0));
 
@@ -32,26 +32,46 @@ const stepSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('solving') }),
 ]);
 
-const gameDataShape = {
+const progressShape = {
   teams: teamsSchema,
   roundNumber: z.int().check(z.minimum(1)),
   usedPhraseIndexes: z.array(count),
+  usedTossUpIndexes: z.array(count),
+};
+
+const gameDataShape = {
+  ...progressShape,
   round: z.object({
     phrase: phraseSchema,
     guessedLetters: z.array(z.string().check(z.length(1))).check(z.maxLength(26)),
     activeTeam: count,
-    startingTeam: count,
   }),
 };
 
-function teamsInRange(state: {
-  teams: unknown[];
-  round: { activeTeam: number; startingTeam: number };
-}) {
-  return (
-    state.round.activeTeam < state.teams.length && state.round.startingTeam < state.teams.length
-  );
+function teamsInRange(state: { teams: unknown[]; round: { activeTeam: number } }) {
+  return state.round.activeTeam < state.teams.length;
 }
+
+const tossUpSchema = z
+  .object({
+    phase: z.literal('tossUp'),
+    ...progressShape,
+    tossUp: z.object({
+      phrase: phraseSchema,
+      revealOrder: z.array(count).check(z.maxLength(200)),
+      revealedCount: count,
+      buzzer: z.nullable(count),
+      eliminated: z.array(count).check(z.maxLength(MAX_TEAMS)),
+    }),
+  })
+  .check(
+    z.refine(
+      ({ teams, tossUp }) =>
+        tossUp.revealedCount <= tossUp.revealOrder.length &&
+        (tossUp.buzzer === null || tossUp.buzzer < teams.length) &&
+        tossUp.eliminated.every((team) => team < teams.length),
+    ),
+  );
 
 const prizeIndex = count.check(z.maximum(FINAL_PRIZES.length - 1));
 
@@ -92,6 +112,7 @@ const gameOverSchema = z
 
 const gameStateSchema: z.ZodMiniType<GameState> = z.union([
   z.object({ phase: z.literal('setup') }),
+  tossUpSchema,
   z
     .object({ phase: z.literal('playing'), step: stepSchema, ...gameDataShape })
     .check(z.refine(teamsInRange)),

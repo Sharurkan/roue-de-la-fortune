@@ -11,7 +11,6 @@ export interface Round {
   /** Every letter proposed in this round, consonants and vowels, in order. */
   guessedLetters: string[];
   activeTeam: number;
-  startingTeam: number;
 }
 
 export type TurnStep =
@@ -21,13 +20,33 @@ export type TurnStep =
   | { kind: 'guessingVowel' }
   | { kind: 'solving' };
 
-interface GameData {
+export interface GameProgress {
   teams: Team[];
   roundNumber: number;
   /** Indexes in the phrase list, so that a phrase is not reused in the same game. */
   usedPhraseIndexes: number[];
-  round: Round;
+  /** Same for the toss-up list. */
+  usedTossUpIndexes: number[];
 }
+
+type GameData = { round: Round } & GameProgress;
+
+/**
+ * Quick puzzle before each regular round: letters appear one by one until a
+ * team buzzes. A right answer gives the team the first turn of the round.
+ */
+export interface TossUp {
+  phrase: Phrase;
+  /** Order in which the hidden tiles appear, as indexes among the phrase letters. */
+  revealOrder: number[];
+  revealedCount: number;
+  /** Team answering after its buzz, or null while the letters appear. */
+  buzzer: number | null;
+  /** Teams that gave a wrong answer: they cannot buzz again. */
+  eliminated: number[];
+}
+
+export type TossUpState = { phase: 'tossUp'; tossUp: TossUp } & GameProgress;
 
 export type PlayingState = { phase: 'playing'; step: TurnStep } & GameData;
 export type RoundOverState = { phase: 'roundOver'; winner: number } & GameData;
@@ -72,10 +91,12 @@ export type GameOverState = {
 };
 
 export type GameState =
-  { phase: 'setup' } | PlayingState | RoundOverState | FinalState | GameOverState;
+  { phase: 'setup' } | TossUpState | PlayingState | RoundOverState | FinalState | GameOverState;
 
 export type GameAction =
   | { type: 'startGame'; teamNames: string[] }
+  | { type: 'revealTossUpLetter' }
+  | { type: 'buzz'; team: number }
   | { type: 'spin' }
   | { type: 'spinEnded' }
   | { type: 'guessConsonant'; letter: string }

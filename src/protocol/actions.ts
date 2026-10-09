@@ -4,8 +4,8 @@ import type { GameAction } from '../game/state';
 
 const letterSchema = z.string().check(z.length(1));
 
-/** Actions the phone may send. The end of the wheel spin only comes from the TV animation. */
-export type PhoneAction = Exclude<GameAction, { type: 'spinEnded' }>;
+/** Actions the phone may send. Timing (wheel stop, toss-up letters) only comes from the TV. */
+export type PhoneAction = Exclude<GameAction, { type: 'spinEnded' | 'revealTossUpLetter' }>;
 
 export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnion('type', [
   z.object({
@@ -13,6 +13,10 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
     teamNames: z
       .array(z.string().check(z.maxLength(MAX_TEAM_NAME_LENGTH)))
       .check(z.minLength(MIN_TEAMS), z.maxLength(MAX_TEAMS)),
+  }),
+  z.object({
+    type: z.literal('buzz'),
+    team: z.int().check(z.minimum(0), z.maximum(MAX_TEAMS - 1)),
   }),
   z.object({ type: z.literal('spin') }),
   z.object({ type: z.literal('guessConsonant'), letter: letterSchema }),

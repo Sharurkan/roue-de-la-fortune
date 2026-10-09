@@ -15,6 +15,7 @@ function deps(randoms: number[] = []): GameDeps {
     random: () => randoms[call++] ?? 0,
     phrases: [{ theme: 'Film', text: 'Le Roi lion' }],
     finalPhrases: [FINAL_PHRASE],
+    tossUpPhrases: [],
   };
 }
 
@@ -27,11 +28,11 @@ function lastRoundOver(teams: Team[], winner: number): RoundOverState {
     teams,
     roundNumber: 4,
     usedPhraseIndexes: [0],
+    usedTossUpIndexes: [0],
     round: {
       phrase: { theme: 'Film', text: 'Le Roi lion' },
       guessedLetters: [],
       activeTeam: winner,
-      startingTeam: 0,
     },
   };
 }

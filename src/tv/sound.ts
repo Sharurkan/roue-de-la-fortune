@@ -24,6 +24,9 @@ export interface Sound {
   bankrupt(): void;
   win(): void;
   roundStart(): void;
+  /** Light pop for a toss-up letter. */
+  pop(): void;
+  buzz(): void;
 }
 
 /** Returns null when Web Audio is not available. */
@@ -117,6 +120,14 @@ export function createSound(): Sound | null {
       });
       [523, 659, 784, 1047].forEach((frequency) => {
         play({ frequency, duration: 0.9, type: 'triangle', volume: 0.15, delay: 0.42 });
+      });
+    },
+    pop: () => {
+      play({ frequency: 990, duration: 0.15, type: 'triangle', volume: 0.18 });
+    },
+    buzz: () => {
+      [0, 0.16].forEach((delay) => {
+        play({ frequency: 740, duration: 0.12, type: 'square', volume: 0.12, delay });
       });
     },
     roundStart: () => {

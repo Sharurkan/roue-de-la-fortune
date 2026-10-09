@@ -9,15 +9,23 @@ interface Tile {
   element: HTMLElement;
   char: string;
   revealed: boolean;
+  /** Position among the letters to guess, or null for punctuation. */
+  letterIndex: number | null;
 }
 
 export interface Board {
   element: HTMLElement;
-  /** Shows a new phrase, with the given letters already visible. */
-  setPhrase(text: string, revealedLetters: readonly string[]): void;
+  /** Shows a new phrase, with the given letters (or letter positions) already visible. */
+  setPhrase(
+    text: string,
+    revealedLetters: readonly string[],
+    revealedTiles?: readonly number[],
+  ): void;
   phrase(): string | null;
   /** Reveals the tiles of these letters one by one. */
   reveal(letters: readonly string[], onEachTile: () => void): Promise<void>;
+  /** Toss-up: shows a single tile, given by its position among the letters to guess. */
+  revealTile(letterIndex: number): void;
   revealAll(): void;
 }
 
@@ -46,18 +54,28 @@ export function createBoard(): Board {
     if (animate) tile.element.classList.add('flip');
   }
 
-  function setPhrase(text: string, revealedLetters: readonly string[]): void {
+  function setPhrase(
+    text: string,
+    revealedLetters: readonly string[],
+    revealedTiles: readonly number[] = [],
+  ): void {
     currentPhrase = text;
     const cells = Array.from({ length: BOARD_COLUMNS * BOARD_MAX_ROWS }, () =>
       createElement('div', { className: 'tile empty' }),
     );
     tiles = [];
+    let letterCount = 0;
     for (const { row, column, char } of gridPositions(layoutBoard(text) ?? [])) {
       const cell = cells[row * BOARD_COLUMNS + column];
       if (cell === undefined || char === ' ') continue;
-      const tile: Tile = { element: cell, char, revealed: false };
+      const letterIndex = isHiddenCharacter(char) ? letterCount++ : null;
+      const tile: Tile = { element: cell, char, revealed: false, letterIndex };
       cell.className = 'tile';
-      if (!isHiddenCharacter(char) || revealedLetters.includes(char)) showTile(tile);
+      const visible =
+        letterIndex === null ||
+        revealedLetters.includes(char) ||
+        revealedTiles.includes(letterIndex);
+      if (visible) showTile(tile);
       tiles.push(tile);
     }
     element.replaceChildren(...cells);
@@ -79,6 +97,10 @@ export function createBoard(): Board {
     setPhrase,
     phrase: () => currentPhrase,
     reveal,
+    revealTile: (letterIndex) => {
+      const tile = tiles.find((t) => t.letterIndex === letterIndex);
+      if (tile !== undefined && !tile.revealed) showTile(tile, true);
+    },
     revealAll: () => {
       for (const tile of tiles) if (!tile.revealed) showTile(tile, true);
     },

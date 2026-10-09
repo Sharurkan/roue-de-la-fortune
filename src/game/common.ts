@@ -8,6 +8,7 @@ export interface GameDeps {
   random: () => number;
   phrases: readonly Phrase[];
   finalPhrases: readonly Phrase[];
+  tossUpPhrases: readonly Phrase[];
 }
 
 export interface ReduceResult {
@@ -21,6 +22,33 @@ export function reject(state: GameState, reason: RejectionReason): ReduceResult 
 
 export function pickIndex(random: () => number, length: number): number {
   return Math.min(Math.floor(random() * length), length - 1);
+}
+
+/** Picks an index not used yet in this game. Once all are used, starts over. */
+export function pickUnused(
+  random: () => number,
+  length: number,
+  used: readonly number[],
+): { index: number; used: number[] } {
+  const fresh = used.length >= length ? [] : used;
+  const available = Array.from({ length }, (_, i) => i).filter((i) => !fresh.includes(i));
+  const index = available[pickIndex(random, available.length)];
+  if (index === undefined) throw new Error('Nothing to pick from');
+  return { index, used: [...fresh, index] };
+}
+
+/** Fisher-Yates shuffle, with injected randomness. */
+export function shuffle<T>(random: () => number, items: readonly T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = pickIndex(random, i + 1);
+    const a = result[i];
+    const b = result[j];
+    if (a === undefined || b === undefined) continue;
+    result[i] = b;
+    result[j] = a;
+  }
+  return result;
 }
 
 /** The single uppercase letter typed, if it belongs to the allowed letters. */

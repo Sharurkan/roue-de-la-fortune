@@ -34,6 +34,8 @@ export const TV_TEXTS = {
   offline: 'Pas de connexion Internet',
   consonantFor: (amount: number) => `${euros(amount)} : propose une consonne`,
   round: (roundNumber: number) => `Manche ${String(roundNumber)}`,
+  tossUp: (roundNumber: number) => `Manche ${String(roundNumber)} · Énigme rapide`,
+  tossUpHint: 'Criez « Buzz ! » et touchez votre équipe sur le téléphone',
   usedLetters: 'Lettres proposées',
   noUsedLetters: 'aucune',
   euros,
@@ -72,6 +74,16 @@ export function statusLabel(status: ConnectionStatus): string {
 /** Banner message for an event, or null when the event is not worth a message. */
 export function eventMessage(event: GameEvent, teamName: (team: number) => string): string | null {
   switch (event.type) {
+    case 'tossUpStarted':
+      return 'Énigme rapide : le premier qui buzze commence la manche !';
+    case 'buzzed':
+      return `${teamName(event.team)} a buzzé !`;
+    case 'tossUpWrong':
+      return `« ${event.answer} » : raté pour ${teamName(event.team)}`;
+    case 'tossUpWon':
+      return `Bravo ! ${teamName(event.team)} commence la manche`;
+    case 'tossUpFailed':
+      return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'roundStarted':
       return `Manche ${String(event.roundNumber)} : c'est parti !`;
     case 'bankrupt':
@@ -108,6 +120,7 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
       return `« ${event.answer} »… Perdu ! C'était : ${prizeAt(event.prizeIndex)}`;
     case 'gameOver':
       return 'Fin de la partie !';
+    case 'tossUpLetterRevealed':
     case 'prizeWheelSpun':
     case 'wheelSpun':
     case 'vowelBought':

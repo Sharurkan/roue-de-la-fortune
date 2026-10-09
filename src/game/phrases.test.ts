@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { layoutBoard } from './board';
 import { CONSONANTS, FINAL_GIVEN_LETTERS, VOWELS } from './config';
-import { FINAL_PHRASES, PHRASES } from './phrases';
+import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from './phrases';
 import { normalizeText } from './text';
 
 const ALLOWED = /^[A-Z '\-,.!?]+$/;
@@ -57,6 +57,30 @@ describe('FINAL_PHRASES', () => {
         (char) => /[A-Z]/.test(char) && !FINAL_GIVEN_LETTERS.includes(char),
       );
       expect(hidden.length).toBeGreaterThanOrEqual(2);
+    },
+  );
+});
+
+describe('TOSS_UP_PHRASES', () => {
+  it('contains enough puzzles for many games', () => {
+    expect(TOSS_UP_PHRASES.length).toBeGreaterThanOrEqual(30);
+  });
+
+  it('shares no phrase with the other lists', () => {
+    const others = [...PHRASES, ...FINAL_PHRASES].map((phrase) => normalizeText(phrase.text));
+    const tossUps = TOSS_UP_PHRASES.map((phrase) => normalizeText(phrase.text));
+    expect(tossUps.filter((text) => others.includes(text))).toEqual([]);
+    expect(new Set(tossUps).size).toBe(tossUps.length);
+  });
+
+  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
+    expect(layoutBoard(text)).not.toBeNull();
+  });
+
+  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))(
+    '%s only uses supported characters',
+    (text) => {
+      expect(normalizeText(text)).toMatch(ALLOWED);
     },
   );
 });

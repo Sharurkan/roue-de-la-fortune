@@ -48,6 +48,9 @@ export const BOARD_MAX_ROWS = 4;
 
 export const ROUND_COUNT = 4;
 
+/** Toss-up: time between two letters appearing on the board. */
+export const TOSS_UP_REVEAL_INTERVAL_MS = 1500;
+
 /** Final round: letters given for free, then letters the finalist picks. */
 export const FINAL_GIVEN_LETTERS = 'RSTLNE';
 export const FINAL_CONSONANT_PICKS = 3;

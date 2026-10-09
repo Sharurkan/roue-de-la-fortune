@@ -79,6 +79,8 @@ function headerText(view: PublicView): string {
       return texts.setupTitle;
     case 'gameOver':
       return texts.finalRanking;
+    case 'tossUp':
+      return `${texts.round(view.roundNumber)} · ${texts.tossUp}`;
     case 'final': {
       const finalist = view.activeTeam === null ? undefined : view.teams[view.activeTeam];
       return texts.final(finalist?.name ?? '');
@@ -171,7 +173,9 @@ function showController(root: HTMLElement, code: string): void {
     versionError = false;
     confirming = null;
     setPending(false);
-    if (next.lastEvents.length > 0) {
+    // Toss-up letters appear every second or so: they must not wipe the last message.
+    const onlyLetters = next.lastEvents.every((event) => event.type === 'tossUpLetterRevealed');
+    if (next.lastEvents.length > 0 && !onlyLetters) {
       message = messageFor(next.lastEvents, (team) => next.teams[team]?.name ?? '');
     }
     render();

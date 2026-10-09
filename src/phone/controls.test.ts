@@ -11,6 +11,7 @@ const DEPS: GameDeps = {
     PHRASES.find((p) => p.text === 'Le Roi lion') ?? { theme: 'Film', text: 'Le Roi lion' },
   ],
   finalPhrases: [{ theme: 'Objet', text: 'Une tondeuse' }],
+  tossUpPhrases: [{ theme: 'Lieu', text: 'La tour Eiffel' }],
 };
 
 function screenAfter(actions: GameAction[]) {
@@ -19,15 +20,37 @@ function screenAfter(actions: GameAction[]) {
   return describeScreen(toPublicView(state, []));
 }
 
-const START: GameAction = { type: 'startGame', teamNames: ['A', 'B'] };
+const START_GAME: GameAction = { type: 'startGame', teamNames: ['A', 'B'] };
+const WIN_TOSS_UP: GameAction[] = [
+  { type: 'buzz', team: 0 },
+  { type: 'submitSolution', answer: 'la tour eiffel' },
+];
+const START: GameAction[] = [START_GAME, ...WIN_TOSS_UP];
 
 describe('describeScreen', () => {
   it('shows the setup first', () => {
     expect(screenAfter([])).toEqual({ kind: 'setup' });
   });
 
+  it('lets the phone holder pick the team that buzzed, except eliminated teams', () => {
+    expect(screenAfter([START_GAME])).toEqual({ kind: 'buzzing', eliminatedTeams: [] });
+    const wrong: GameAction[] = [
+      START_GAME,
+      { type: 'buzz', team: 1 },
+      { type: 'submitSolution', answer: 'non' },
+    ];
+    expect(screenAfter(wrong)).toEqual({ kind: 'buzzing', eliminatedTeams: [1] });
+  });
+
+  it('asks the team that buzzed for its answer', () => {
+    expect(screenAfter([START_GAME, { type: 'buzz', team: 1 }])).toEqual({
+      kind: 'tossUpSolving',
+      team: 1,
+    });
+  });
+
   it('shows the turn choices, with a vowel not yet affordable', () => {
-    expect(screenAfter([START])).toEqual({
+    expect(screenAfter(START)).toEqual({
       kind: 'turn',
       canSpin: true,
       canBuyVowel: false,
@@ -37,23 +60,23 @@ describe('describeScreen', () => {
   });
 
   it('locks everything while the wheel spins', () => {
-    expect(screenAfter([START, { type: 'spin' }])).toEqual({ kind: 'spinning' });
+    expect(screenAfter([...START, { type: 'spin' }])).toEqual({ kind: 'spinning' });
   });
 
   it('asks for a consonant with the segment value', () => {
-    expect(screenAfter([START, { type: 'spin' }, { type: 'spinEnded' }])).toEqual({
+    expect(screenAfter([...START, { type: 'spin' }, { type: 'spinEnded' }])).toEqual({
       kind: 'consonant',
       value: 300,
     });
   });
 
   it('shows the solution input', () => {
-    expect(screenAfter([START, { type: 'startSolving' }])).toEqual({ kind: 'solving' });
+    expect(screenAfter([...START, { type: 'startSolving' }])).toEqual({ kind: 'solving' });
   });
 
   it('shows the end of the round with the winner', () => {
     const actions: GameAction[] = [
-      START,
+      ...START,
       { type: 'startSolving' },
       { type: 'submitSolution', answer: 'le roi lion' },
     ];
@@ -61,7 +84,7 @@ describe('describeScreen', () => {
   });
 
   it('shows the end of the game', () => {
-    expect(screenAfter([START, { type: 'abandonGame' }])).toEqual({ kind: 'gameOver' });
+    expect(screenAfter([...START, { type: 'abandonGame' }])).toEqual({ kind: 'gameOver' });
   });
 
   describe('final round', () => {
@@ -70,13 +93,16 @@ describe('describeScreen', () => {
       { type: 'submitSolution', answer: 'le roi lion' },
     ];
     const lastRoundOver: GameAction[] = [
-      START,
+      ...START,
       ...winRound,
       { type: 'nextRound' },
+      ...WIN_TOSS_UP,
       ...winRound,
       { type: 'nextRound' },
+      ...WIN_TOSS_UP,
       ...winRound,
       { type: 'nextRound' },
+      ...WIN_TOSS_UP,
       ...winRound,
     ];
     const toPicking: GameAction[] = [

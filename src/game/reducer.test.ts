@@ -7,11 +7,18 @@ import type { GameAction, GameState, PlayingState } from './state';
 // Consonants: C S R L P D (S four times). Vowels: A E I.
 const PHRASE: Phrase = { theme: 'Expression', text: 'Casser les pieds' };
 
+const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
+
 const SEGMENT = { value300: 0, value500: 1, bankrupt: 2, pass: 7, value1000: 17 } as const;
 
 function deps(randoms: number[] = [], phrases: readonly Phrase[] = [PHRASE]): GameDeps {
   let call = 0;
-  return { random: () => randoms[call++] ?? 0, phrases, finalPhrases: phrases };
+  return {
+    random: () => randoms[call++] ?? 0,
+    phrases,
+    finalPhrases: phrases,
+    tossUpPhrases: [TOSS_UP],
+  };
 }
 
 function randomFor(segmentIndex: number): number {
@@ -29,11 +36,19 @@ function playing(state: GameState): PlayingState {
   return state;
 }
 
+/** Plays the toss-up: the given team buzzes and finds the answer. */
+function winTossUp(state: GameState, team: number, phrases: readonly Phrase[]): PlayingState {
+  const actions: GameAction[] = [
+    { type: 'buzz', team },
+    { type: 'submitSolution', answer: TOSS_UP.text },
+  ];
+  return playing(apply(state, actions, deps([], phrases)).state);
+}
+
 function newGame(teamCount = 3, phrases: readonly Phrase[] = [PHRASE]): PlayingState {
   const teamNames = Array.from({ length: teamCount }, () => '');
-  return playing(
-    reduce({ phase: 'setup' }, { type: 'startGame', teamNames }, deps([], phrases)).state,
-  );
+  const tossUp = reduce({ phase: 'setup' }, { type: 'startGame', teamNames }, deps([], phrases));
+  return winTossUp(tossUp.state, 0, phrases);
 }
 
 function spinTo(state: GameState, segmentIndex: number): ReduceResult {
@@ -76,7 +91,7 @@ describe('game setup', () => {
   it('uses default names for empty names, trims and limits length', () => {
     const teamNames = ['', '  Les Bleus  ', 'A'.repeat(30)];
     const { state } = reduce({ phase: 'setup' }, { type: 'startGame', teamNames }, deps());
-    expect(playing(state).teams.map((team) => team.name)).toEqual([
+    expect(state.phase === 'tossUp' && state.teams.map((team) => team.name)).toEqual([
       'Équipe 1',
       'Les Bleus',
       'A'.repeat(20),
@@ -327,32 +342,31 @@ describe('rounds and game end', () => {
     return apply(state, [{ type: 'startSolving' }, { type: 'submitSolution', answer: text }]);
   };
 
-  it('the next round starts with the next team and keeps totals', () => {
+  const nextRound = (state: GameState, tossUpWinner = 0) =>
+    winTossUp(
+      reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases)).state,
+      tossUpWinner,
+      phrases,
+    );
+
+  it('the next round opens with a toss-up and keeps totals', () => {
     const game = withRoundScore(newGame(3, phrases), 0, 500);
     const roundOver = winRound(game).state;
     const result = reduce(roundOver, { type: 'nextRound' }, deps([], phrases));
-    const state = playing(result.state);
+    expect(result.state.phase).toBe('tossUp');
+    expect(result.events).toEqual([{ type: 'tossUpStarted', roundNumber: 2 }]);
+    const state = winTossUp(result.state, 2, phrases);
     expect(state.roundNumber).toBe(2);
-    expect(state.round.startingTeam).toBe(1);
-    expect(state.round.activeTeam).toBe(1);
+    expect(state.round.activeTeam).toBe(2);
     expect(state.round.guessedLetters).toEqual([]);
     expect(state.teams.map((t) => t.totalScore)).toEqual([500, 0, 0]);
-    expect(result.events).toEqual([{ type: 'roundStarted', roundNumber: 2 }]);
-  });
-
-  it('the starting team rotates back to the first team', () => {
-    let state: GameState = newGame(2, phrases);
-    for (let round = 0; round < 2; round++) {
-      state = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases)).state;
-    }
-    expect(playing(state).round.startingTeam).toBe(0);
   });
 
   it('never repeats a phrase until the list is exhausted, then starts over', () => {
     let state: GameState = newGame(2, phrases);
     const seen = [playing(state).round.phrase.text];
     for (let round = 0; round < 2; round++) {
-      state = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases)).state;
+      state = nextRound(state);
       seen.push(playing(state).round.phrase.text);
     }
     expect(seen.slice(0, 2).sort()).toEqual(['Le Roi lion', 'Les Visiteurs']);
@@ -361,9 +375,7 @@ describe('rounds and game end', () => {
 
   it('plays 4 regular rounds, then the next step is the final', () => {
     let state: GameState = newGame(2, phrases);
-    for (let round = 1; round < 4; round++) {
-      state = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases)).state;
-    }
+    for (let round = 1; round < 4; round++) state = nextRound(state);
     expect(playing(state).roundNumber).toBe(4);
     const final = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases));
     expect(final.state.phase).toBe('final');

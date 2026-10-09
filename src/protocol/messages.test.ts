@@ -17,6 +17,7 @@ const otherVersion = { ok: false, reason: 'version' };
 describe('parsePhoneMessage', () => {
   it.each([
     { type: 'startGame', teamNames: ['A', 'B'] },
+    { type: 'buzz', team: 3 },
     { type: 'spin' },
     { type: 'guessConsonant', letter: 'S' },
     { type: 'buyVowel' },
@@ -61,6 +62,10 @@ describe('parsePhoneMessage', () => {
     { v: PROTOCOL_VERSION, type: 'action' },
     { v: PROTOCOL_VERSION, type: 'action', action: { type: 'hack' } },
     { v: PROTOCOL_VERSION, type: 'action', action: { type: 'spinEnded' } },
+    { v: PROTOCOL_VERSION, type: 'action', action: { type: 'revealTossUpLetter' } },
+    { v: PROTOCOL_VERSION, type: 'action', action: { type: 'buzz', team: 4 } },
+    { v: PROTOCOL_VERSION, type: 'action', action: { type: 'buzz', team: -1 } },
+    { v: PROTOCOL_VERSION, type: 'action', action: { type: 'buzz' } },
     { v: PROTOCOL_VERSION, type: 'action', action: { type: 'guessConsonant', letter: 'ST' } },
     { v: PROTOCOL_VERSION, type: 'action', action: { type: 'guessConsonant', letter: '' } },
     { v: PROTOCOL_VERSION, type: 'action', action: { type: 'guessConsonant' } },
