@@ -14,9 +14,11 @@ export function isHiddenCharacter(char: string): boolean {
   return /^[A-Z]$/.test(char);
 }
 
-/** Keeps only letters and digits, for a lenient answer comparison. */
+/** Keeps only letters and digits, for a lenient answer comparison. "&" may be typed "et". */
 export function normalizeAnswer(text: string): string {
-  return normalizeText(text).replace(/[^A-Z0-9]/g, '');
+  return normalizeText(text)
+    .replace(/&/g, 'ET')
+    .replace(/[^A-Z0-9]/g, '');
 }
 
 export function isSameAnswer(proposal: string, solution: string): boolean {

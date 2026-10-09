@@ -37,6 +37,13 @@ describe('normalizeAnswer', () => {
 });
 
 describe('isSameAnswer', () => {
+  it('accepts "et" or "&" between two songs', () => {
+    const solution = 'La Bohème & Emmenez-moi';
+    expect(isSameAnswer('la boheme et emmenez moi', solution)).toBe(true);
+    expect(isSameAnswer('la boheme & emmenez-moi', solution)).toBe(true);
+    expect(isSameAnswer('la boheme emmenez moi', solution)).toBe(false);
+  });
+
   it('ignores case, accents, spaces and punctuation', () => {
     expect(isSameAnswer('le mont saint michel', 'Le mont Saint-Michel')).toBe(true);
     expect(isSameAnswer('BOEUF bourguignon', 'Bœuf bourguignon')).toBe(true);

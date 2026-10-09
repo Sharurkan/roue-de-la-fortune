@@ -4,12 +4,19 @@ import { CONSONANTS, FINAL_GIVEN_LETTERS, VOWELS } from './config';
 import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from './phrases';
 import { normalizeText } from './text';
 
-const ALLOWED = /^[A-Z '\-,.!?]+$/;
+const ALLOWED = /^[A-Z '\-,.!?&]+$/;
 
 describe('PHRASES', () => {
-  it('contains about 40 phrases', () => {
-    expect(PHRASES.length).toBeGreaterThanOrEqual(35);
+  it('contains plenty of phrases', () => {
+    expect(PHRASES.length).toBeGreaterThanOrEqual(80);
   });
+
+  it.each(PHRASES.filter((phrase) => phrase.theme === 'Musique').map((phrase) => phrase.text))(
+    '%s gives two songs joined by &',
+    (text) => {
+      expect(text.split(' & ')).toHaveLength(2);
+    },
+  );
 
   it('has no duplicate', () => {
     const texts = PHRASES.map((phrase) => normalizeText(phrase.text));
@@ -36,7 +43,7 @@ describe('PHRASES', () => {
 
 describe('FINAL_PHRASES', () => {
   it('contains enough answers to vary the final', () => {
-    expect(FINAL_PHRASES.length).toBeGreaterThanOrEqual(20);
+    expect(FINAL_PHRASES.length).toBeGreaterThanOrEqual(40);
   });
 
   it.each(FINAL_PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
@@ -51,19 +58,29 @@ describe('FINAL_PHRASES', () => {
   );
 
   it.each(FINAL_PHRASES.map((phrase) => phrase.text))(
-    '%s still hides letters once R S T L N E are given',
+    '%s is neither given away nor bare once R S T L N E are shown',
     (text) => {
-      const hidden = Array.from(normalizeText(text)).filter(
-        (char) => /[A-Z]/.test(char) && !FINAL_GIVEN_LETTERS.includes(char),
-      );
-      expect(hidden.length).toBeGreaterThanOrEqual(2);
+      const letters = Array.from(normalizeText(text)).filter((char) => /[A-Z]/.test(char));
+      const given = letters.filter((char) => FINAL_GIVEN_LETTERS.includes(char)).length;
+      expect(given / letters.length).toBeGreaterThanOrEqual(0.05);
+      expect(given / letters.length).toBeLessThanOrEqual(0.25);
     },
   );
+
+  it('never uses an expression nor a proverb', () => {
+    const themes = FINAL_PHRASES.map((phrase) => phrase.theme);
+    expect(themes).not.toContain('Expression');
+    expect(themes).not.toContain('Proverbe');
+  });
 });
 
 describe('TOSS_UP_PHRASES', () => {
   it('contains enough puzzles for many games', () => {
-    expect(TOSS_UP_PHRASES.length).toBeGreaterThanOrEqual(30);
+    expect(TOSS_UP_PHRASES.length).toBeGreaterThanOrEqual(50);
+  });
+
+  it.each(TOSS_UP_PHRASES.map((phrase) => phrase.text))('%s has three words at most', (text) => {
+    expect(text.split(/\s+/).length).toBeLessThanOrEqual(3);
   });
 
   it('shares no phrase with the other lists', () => {
