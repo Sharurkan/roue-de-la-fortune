@@ -30,6 +30,7 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
   }),
   z.object({
     type: z.literal('spin'),
+    power: z.optional(z.number().check(z.minimum(0), z.maximum(1))),
     segmentIndex: z.optional(z.int().check(z.minimum(0), z.maximum(MAX_SEGMENTS))),
     part: z.optional(z.enum(['left', 'middle', 'right'])),
   }),

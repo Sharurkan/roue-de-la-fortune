@@ -81,6 +81,44 @@
   color: var(--error);
 }
 
+/* Spin buttons: a gauge fills up while the finger stays down. */
+.power-button {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.gauge-fill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  /* Revealed from the left: the colours stay in place, green to red. */
+  clip-path: inset(0 100% 0 0);
+  background: linear-gradient(90deg, #2ecc71, #f5b700 60%, #e3122c);
+  pointer-events: none;
+}
+
+.gauge-label {
+  position: relative;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.alert {
+  padding: 10px 12px;
+  border: 2px solid #ffd23f;
+  border-radius: 10px;
+  background: rgba(255, 210, 63, 0.15);
+  color: #ffd23f;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
 .choices {
   display: flex;
 }
@@ -151,9 +189,17 @@
   font-weight: bold;
 }
 
+/* Waiting for the TV: the keys stay white, just dimmed. */
 .key:disabled {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.22);
+  opacity: 0.45;
+}
+
+/* Letter already proposed or given: hollow and crossed out, never mistaken for a playable key. */
+.key.used {
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  text-decoration: line-through;
   opacity: 1;
 }
 

@@ -62,6 +62,9 @@ export const TV_TEXTS = {
   tossUpHintMulti: 'Buzzez sur votre téléphone !',
   usedLetters: 'Lettres proposées',
   noUsedLetters: 'aucune',
+  noMoreConsonants: "Il n'y a plus de consonnes",
+  noMoreVowels: "Il n'y a plus de voyelles",
+  noMoreLetters: 'Plus de consonnes ni de voyelles : proposez la solution !',
   euros,
   total: (amount: number) => `Total : ${euros(amount)}`,
   waitingForNextRound: 'Sur le téléphone : manche suivante ou fin de partie',
@@ -139,6 +142,8 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
       return event.count === 1
         ? `Il y a un ${event.letter} !`
         : `Il y a ${String(event.count)} ${event.letter} !`;
+    case 'letterAlreadyCalled':
+      return `Le ${event.letter} a déjà été proposé !`;
     case 'letterAbsent':
       return `Pas de ${event.letter}…`;
     case 'turnPassed':

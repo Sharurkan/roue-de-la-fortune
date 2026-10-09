@@ -13,7 +13,7 @@ function playing(activeTeam: number): PlayingState {
     ...progress,
     phase: 'playing',
     step: { kind: 'choosing' },
-    round: { phrase: PHRASE, guessedLetters: [], activeTeam },
+    round: { phrase: PHRASE, guessedLetters: [], activeTeam, wheelPosition: 0 },
   };
 }
 
@@ -30,7 +30,7 @@ const final: FinalState = {
   teams: TEAMS,
   finalist: 2,
   step: { kind: 'prizeWheel' },
-  final: { phrase: PHRASE, prizeIndex: null, pickedLetters: [] },
+  final: { phrase: PHRASE, prizeIndex: null, pickedLetters: [], wheelPosition: 0 },
 };
 
 const player = (teamIndex: number) => ({ team: teamIndex, isMaster: false });

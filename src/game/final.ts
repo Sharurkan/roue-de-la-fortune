@@ -16,6 +16,7 @@ import {
   type ReduceResult,
 } from './common';
 import type { FinalState, Team } from './state';
+import { positionAfter, spinTravel } from './wheel';
 import { isSameAnswer, normalizeAnswer } from './text';
 
 /** Highest total wins the final. On a tie, the winner of the last round, else the first team. */
@@ -35,18 +36,33 @@ export function startFinal(teams: Team[], lastRoundWinner: number, deps: GameDep
       teams,
       finalist,
       step: { kind: 'prizeWheel' },
-      final: { phrase, prizeIndex: null, pickedLetters: [] },
+      final: { phrase, prizeIndex: null, pickedLetters: [], wheelPosition: 0 },
     },
     events: [{ type: 'finalStarted', finalist }],
   };
 }
 
-export function spinPrizeWheel(state: FinalState, deps: GameDeps): ReduceResult {
+/**
+ * The force decides which envelope stops under the pointer, but what is inside
+ * is drawn at random: the envelopes all look the same.
+ */
+export function spinPrizeWheel(
+  state: FinalState,
+  power: number | undefined,
+  deps: GameDeps,
+): ReduceResult {
   if (state.step.kind !== 'prizeWheel') return reject(state, 'wrongPhase');
   const prizeIndex = pickIndex(deps.random, FINAL_PRIZES.length);
+  const from = state.final.wheelPosition;
+  const travel = spinTravel(power ?? deps.random(), FINAL_PRIZES.length);
+  const wheelPosition = positionAfter(from, travel, FINAL_PRIZES.length);
   return {
-    state: { ...state, step: { kind: 'prizeSpinning' }, final: { ...state.final, prizeIndex } },
-    events: [{ type: 'prizeWheelSpun', prizeIndex }],
+    state: {
+      ...state,
+      step: { kind: 'prizeSpinning', from, travel },
+      final: { ...state.final, prizeIndex, wheelPosition },
+    },
+    events: [{ type: 'prizeWheelSpun', prizeIndex, from, travel }],
   };
 }
 

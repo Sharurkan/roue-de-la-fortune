@@ -11,6 +11,8 @@ export interface Round {
   /** Every letter proposed in this round, consonants and vowels, in order. */
   guessedLetters: string[];
   activeTeam: number;
+  /** Where the wheel stands under the pointer, in segments: segment i spans [i - 0.5, i + 0.5). */
+  wheelPosition: number;
 }
 
 /** Where the pointer stops inside the slot. Only the jackpot slot has distinct parts. */
@@ -20,7 +22,8 @@ export type PocketColor = 'red' | 'blue';
 
 export type TurnStep =
   | { kind: 'choosing' }
-  | { kind: 'spinning'; segmentIndex: number; part: SlotPart }
+  /** from and travel, in segments, let the TV replay the spin exactly. */
+  | { kind: 'spinning'; segmentIndex: number; part: SlotPart; from: number; travel: number }
   /** perLetter is false for the jackpot: its amount is won once, not per letter. */
   | { kind: 'guessingConsonant'; amount: number; perLetter: boolean }
   /** The phone never learns which envelope wins nor its amount. */
@@ -65,7 +68,7 @@ export type RoundOverState = { phase: 'roundOver'; winner: number } & GameData;
  */
 export type FinalStep =
   | { kind: 'prizeWheel' }
-  | { kind: 'prizeSpinning' }
+  | { kind: 'prizeSpinning'; from: number; travel: number }
   | { kind: 'pickingLetters' }
   | { kind: 'solving' };
 
@@ -75,6 +78,8 @@ export interface FinalRound {
   prizeIndex: number | null;
   /** Letters picked by the finalist, revealed together once all are picked. */
   pickedLetters: string[];
+  /** Where the envelope wheel stands, in segments. */
+  wheelPosition: number;
 }
 
 export type FinalState = {
@@ -106,8 +111,16 @@ export type GameAction =
   | { type: 'startGame'; teamNames: string[]; firstRound?: number | undefined }
   | { type: 'revealTossUpLetter' }
   | { type: 'buzz'; team: number }
-  /** segmentIndex and part force the result, for testing. */
-  | { type: 'spin'; segmentIndex?: number | undefined; part?: SlotPart | undefined }
+  /**
+   * power, from 0 to 1, decides where the wheel stops (drawn at random when
+   * missing). segmentIndex and part force the result, for testing.
+   */
+  | {
+      type: 'spin';
+      power?: number | undefined;
+      segmentIndex?: number | undefined;
+      part?: SlotPart | undefined;
+    }
   | { type: 'spinEnded' }
   | { type: 'guessConsonant'; letter: string }
   | { type: 'choosePocket'; color: PocketColor }

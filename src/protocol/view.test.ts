@@ -101,7 +101,9 @@ describe('toPublicView', () => {
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [...START, { type: 'spin' }]);
-    const view = toPublicView(state, [{ type: 'wheelSpun', segmentIndex: 0, part: 'middle' }]);
+    const view = toPublicView(state, [
+      { type: 'wheelSpun', segmentIndex: 0, part: 'middle', from: 0, travel: 48.5 },
+    ]);
     expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
   });
 
@@ -191,7 +193,9 @@ describe('toPublicView', () => {
 
     it('never tells the phone which envelope was drawn before the end', () => {
       const actions: GameAction[] = [...toFinal, { type: 'spin' }];
-      const view = toPublicView(play(phrase, actions), [{ type: 'prizeWheelSpun', prizeIndex: 3 }]);
+      const view = toPublicView(play(phrase, actions), [
+        { type: 'prizeWheelSpun', prizeIndex: 3, from: 0, travel: 20 },
+      ]);
       expect(view.lastEvents).toEqual([]);
       expect(view.finalResult).toBeNull();
       expect(JSON.stringify(view)).not.toContain('prizeIndex');

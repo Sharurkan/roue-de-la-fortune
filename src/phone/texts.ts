@@ -48,6 +48,8 @@ export const PHONE_TEXTS = {
   tossUpAnswer: (name: string) => `${name} : ta réponse`,
   activeTeam: (name: string, score: number) => `${name} : ${euros(score)}`,
   spin: 'Tourner la roue',
+  releaseToSpin: 'Lâche pour lancer !',
+  holdToSpin: 'Garde le doigt appuyé : plus la jauge monte, plus la roue va loin.',
   buyVowel: (cost: number) => `Acheter une voyelle (${euros(cost)})`,
   solve: 'Proposer la solution',
   noMoreConsonants: "Il n'y a plus de consonnes",
@@ -157,6 +159,7 @@ const REJECTIONS: Record<RejectionReason, string> = {
   invalidRound: 'Manche inconnue',
   invalidPocket: 'Enveloppe inconnue',
   invalidSegment: 'Case inconnue',
+  invalidPower: 'Force de lancer invalide',
   teamEliminated: 'Cette équipe a déjà répondu',
 };
 
@@ -188,6 +191,8 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
       return event.gain > 0
         ? `${String(event.count)} × ${event.letter} : +${euros(event.gain)}`
         : `${String(event.count)} × ${event.letter}`;
+    case 'letterAlreadyCalled':
+      return `${event.letter} déjà proposé : la main passe`;
     case 'letterAbsent':
       return `Pas de ${event.letter}`;
     case 'turnPassed':

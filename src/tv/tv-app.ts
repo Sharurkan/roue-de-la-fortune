@@ -100,12 +100,13 @@ function initialRoom(state: GameState): Room {
 /** A wheel that was spinning when the page was reloaded: spin it again to the same result. */
 function interruptedSpin(state: GameState): GameEvent[] {
   if (state.phase === 'playing' && state.step.kind === 'spinning') {
-    const { segmentIndex, part } = state.step;
-    return [{ type: 'wheelSpun', segmentIndex, part }];
+    const { segmentIndex, part, from, travel } = state.step;
+    return [{ type: 'wheelSpun', segmentIndex, part, from, travel }];
   }
   if (state.phase === 'final' && state.step.kind === 'prizeSpinning') {
     const { prizeIndex } = state.final;
-    return prizeIndex === null ? [] : [{ type: 'prizeWheelSpun', prizeIndex }];
+    const { from, travel } = state.step;
+    return prizeIndex === null ? [] : [{ type: 'prizeWheelSpun', prizeIndex, from, travel }];
   }
   return [];
 }
@@ -226,7 +227,7 @@ export function startTv(root: HTMLElement): void {
   async function animate(event: GameEvent): Promise<void> {
     switch (event.type) {
       case 'wheelSpun':
-        await game.wheel().spin(event.segmentIndex, event.part);
+        await game.wheel().spin(event.from, event.travel);
         dispatch({ type: 'spinEnded' });
         return;
       case 'letterFound':
@@ -245,6 +246,7 @@ export function startTv(root: HTMLElement): void {
         await wait(POCKET_RESULT_PAUSE_MS);
         return;
       case 'letterAbsent':
+      case 'letterAlreadyCalled':
       case 'wrongSolution':
         sound?.absent();
         return;
@@ -280,7 +282,7 @@ export function startTv(root: HTMLElement): void {
         sound?.roundStart();
         return;
       case 'prizeWheelSpun':
-        await game.prizeWheel.spin(event.prizeIndex);
+        await game.prizeWheel.spin(event.from, event.travel);
         dispatch({ type: 'spinEnded' });
         return;
       case 'finalLettersGiven':

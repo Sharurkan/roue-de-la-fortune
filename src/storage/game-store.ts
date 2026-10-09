@@ -5,9 +5,11 @@ import type { GameState } from '../game/state';
 
 const GAME_KEY = 'rdlf.game';
 /** Bump when the saved shape changes: older saves are then dropped instead of misread. */
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 6;
 
 const count = z.int().check(z.minimum(0));
+/** Wheel positions and travels, in segments. */
+const distance = z.number().check(z.minimum(0));
 
 const phraseSchema = z.object({
   text: z.string().check(z.minLength(1), z.maxLength(200)),
@@ -30,6 +32,8 @@ const stepSchema = z.discriminatedUnion('kind', [
     kind: z.literal('spinning'),
     segmentIndex: count,
     part: z.enum(['left', 'middle', 'right']),
+    from: distance,
+    travel: distance,
   }),
   z.object({ kind: z.literal('guessingConsonant'), amount: count, perLetter: z.boolean() }),
   z.object({
@@ -54,6 +58,7 @@ const gameDataShape = {
     phrase: phraseSchema,
     guessedLetters: z.array(z.string().check(z.length(1))).check(z.maxLength(26)),
     activeTeam: count,
+    wheelPosition: distance,
   }),
 };
 
@@ -86,7 +91,7 @@ const prizeIndex = count.check(z.maximum(FINAL_PRIZES.length - 1));
 
 const finalStepSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('prizeWheel') }),
-  z.object({ kind: z.literal('prizeSpinning') }),
+  z.object({ kind: z.literal('prizeSpinning'), from: distance, travel: distance }),
   z.object({ kind: z.literal('pickingLetters') }),
   z.object({ kind: z.literal('solving') }),
 ]);
@@ -101,6 +106,7 @@ const finalSchema = z
       phrase: phraseSchema,
       prizeIndex: z.nullable(prizeIndex),
       pickedLetters: z.array(z.string().check(z.length(1))).check(z.maxLength(26)),
+      wheelPosition: distance,
     }),
   })
   .check(

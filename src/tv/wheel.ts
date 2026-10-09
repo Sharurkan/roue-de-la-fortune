@@ -1,8 +1,7 @@
 import type { WheelSegment } from '../game/config';
-import type { SlotPart } from '../game/state';
 import { createSvgElement } from '../shared/dom';
 import { TV_TEXTS } from './texts';
-import { bordersCrossed, easeOutCubic, segmentAngle, targetRotation } from './wheel-math';
+import { bordersCrossed, easeOutCubic, segmentAngle } from './wheel-math';
 
 /** Rim, pegs, hub and pointer use the shared trim colours defined in style.css. */
 const TRIM = {
@@ -16,10 +15,9 @@ const RIM_RADIUS = 100;
 const RADIUS = 94;
 const PEG_RADIUS = 89;
 const BULB_COUNT = 24;
-const SPIN_DURATION_MS = 5000;
-const FULL_TURNS = 4;
-/** Keeps the pointer away from segment borders, so the result is never ambiguous. */
-const MAX_OFFSET = 0.35;
+/** A stronger spin goes further, and lasts longer. */
+const SPIN_BASE_MS = 2000;
+const SPIN_MS_PER_TURN = 1250;
 /** Rich jewel tones: lively without being neon. Two neighbours never share a colour. */
 const VALUE_COLORS = [
   '#e3122c',
@@ -68,8 +66,10 @@ export interface WheelFace {
 
 export interface Wheel {
   element: SVGSVGElement;
-  /** Resolves when the wheel has stopped on the segment, in the given part of it. */
-  spin(segmentIndex: number, part?: SlotPart): Promise<void>;
+  /** Puts the wheel at this position, in segments, without animation. */
+  place(position: number): void;
+  /** Turns from a position by a travel, both in segments. Resolves once stopped. */
+  spin(from: number, travel: number): Promise<void>;
 }
 
 /** Faces of the main wheel. */
@@ -424,20 +424,6 @@ function drawPointer(trim: string): SVGGElement {
   ]);
 }
 
-/**
- * Where the pointer stops inside the segment, in [-0.5, 0.5]. Kept away from
- * borders, so the result is never ambiguous.
- */
-function stopOffset(face: WheelFace | undefined, part: SlotPart): number {
-  const jitter = Math.random() * 2 - 1;
-  const side = face?.sides?.share;
-  if (side === undefined) return jitter * MAX_OFFSET;
-  const middle = 0.5 - side;
-  if (part === 'middle') return jitter * middle * 0.7;
-  const centre = 0.5 - side / 2;
-  return (part === 'left' ? -centre : centre) + jitter * (side / 2) * 0.6;
-}
-
 function restartAnimation(element: Element, className: string): void {
   element.classList.remove(className);
   element.getBoundingClientRect(); // Forces a layout, so that the browser sees the class as new.
@@ -487,14 +473,17 @@ export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wh
     onTick();
   }
 
-  function spin(segmentIndex: number, part: SlotPart = 'middle'): Promise<void> {
+  function place(position: number): void {
+    // Segment i is drawn at i × angle: the pointer reads it at the opposite rotation.
+    rotation = -position * angle;
+    show(rotation);
+  }
+
+  function spin(fromPosition: number, travel: number): Promise<void> {
+    place(fromPosition);
     const from = rotation;
-    const to = targetRotation(from, {
-      segmentIndex,
-      segmentCount: faces.length,
-      fullTurns: FULL_TURNS,
-      offset: stopOffset(faces[segmentIndex], part),
-    });
+    const to = from + travel * angle;
+    const duration = SPIN_BASE_MS + (travel / faces.length) * SPIN_MS_PER_TURN;
     element.classList.add('spinning');
     return new Promise((resolve) => {
       const startedAt = performance.now();
@@ -510,7 +499,7 @@ export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wh
       };
       const frame = (now: number): void => {
         if (done) return;
-        const progress = (now - startedAt) / SPIN_DURATION_MS;
+        const progress = (now - startedAt) / duration;
         const current = from + (to - from) * easeOutCubic(progress);
         if (bordersCrossed(previous, current, faces.length) > 0) tick();
         previous = current;
@@ -520,10 +509,10 @@ export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wh
       };
       requestAnimationFrame(frame);
       // Animation frames pause when the page is hidden: the game must not get stuck.
-      setTimeout(finish, SPIN_DURATION_MS + 1000);
+      setTimeout(finish, duration + 1000);
     });
   }
 
   show(rotation);
-  return { element, spin };
+  return { element, place, spin };
 }

@@ -291,6 +291,17 @@
   text-align: center;
 }
 
+.game-hint.alert {
+  justify-self: center;
+  padding: 0.6vh 2vh;
+  border: 0.3vh solid #ffd23f;
+  border-radius: 1vh;
+  background: rgba(255, 210, 63, 0.15);
+  color: #ffd23f;
+  font-size: 4vh;
+  font-weight: bold;
+}
+
 /* Final ranking */
 .final {
   display: flex;

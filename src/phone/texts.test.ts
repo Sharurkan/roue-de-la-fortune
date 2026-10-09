@@ -7,7 +7,10 @@ describe('messageFor', () => {
   it('says nothing when there is nothing to say', () => {
     expect(messageFor([], teamName)).toBeNull();
     expect(
-      messageFor([{ type: 'wheelSpun', segmentIndex: 3, part: 'middle' }], teamName),
+      messageFor(
+        [{ type: 'wheelSpun', segmentIndex: 3, part: 'middle', from: 0, travel: 50 }],
+        teamName,
+      ),
     ).toBeNull();
   });
 

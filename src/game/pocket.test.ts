@@ -43,15 +43,14 @@ function round3(): PlayingState {
   return { ...state, teams: state.teams.map((t, i) => (i === 0 ? { ...t, roundScore: 200 } : t)) };
 }
 
-const slotRandom = (POCKET_SLOT + 0.5) / 24;
-/** Randoms: the slot, its part, the winning envelope (< 0.5: red), then the amount. */
+/** Randoms: the winning envelope (< 0.5: red), then the amount. */
 const amountRandom = (index: number) => (index + 0.5) / POCKET_AMOUNTS.length;
 
 function landOnPocket(winningRandom: number, amountIndex: number): ReduceResult {
   return apply(
     round3(),
-    [{ type: 'spin' }, { type: 'spinEnded' }],
-    deps([slotRandom, 0.5, winningRandom, amountRandom(amountIndex)]),
+    [{ type: 'spin', segmentIndex: POCKET_SLOT }, { type: 'spinEnded' }],
+    deps([winningRandom, amountRandom(amountIndex)]),
   );
 }
 

@@ -1,7 +1,6 @@
 import {
   bankruptTeam,
   normalizeLetter,
-  pickIndex,
   reject,
   updateTeam,
   type GameDeps,
@@ -39,7 +38,7 @@ import { isSameAnswer, normalizeAnswer } from './text';
 import { revealMystery } from './mystery';
 import { offerPocket, openPocket } from './pocket';
 import { passTurn } from './round';
-import { pickSlotPart, wheelForRound } from './wheel';
+import { isValidPower, positionAfter, slotAt, spinTravel, travelTo, wheelForRound } from './wheel';
 import { buzz, revealTossUpLetter, startTossUp, submitTossUpAnswer } from './toss-up';
 
 export type { GameDeps, ReduceResult } from './common';
@@ -116,24 +115,40 @@ function isChoosing(state: GameState): state is PlayingState & { step: { kind: '
 function spin(
   state: GameState,
   deps: GameDeps,
-  forced: { segmentIndex?: number | undefined; part?: SlotPart | undefined },
+  action: {
+    power?: number | undefined;
+    segmentIndex?: number | undefined;
+    part?: SlotPart | undefined;
+  },
 ): ReduceResult {
-  if (state.phase === 'final') return spinPrizeWheel(state, deps);
+  if (action.power !== undefined && !isValidPower(action.power)) {
+    return reject(state, 'invalidPower');
+  }
+  if (state.phase === 'final') return spinPrizeWheel(state, action.power, deps);
   if (!isChoosing(state)) return reject(state, 'wrongPhase');
   if (!hasHiddenConsonants(state.round)) return reject(state, 'noConsonantsLeft');
   const wheel = wheelForRound(state.roundNumber);
-  const forcedIndex = forced.segmentIndex;
+  const forcedIndex = action.segmentIndex;
   if (
     forcedIndex !== undefined &&
     (!Number.isInteger(forcedIndex) || wheel[forcedIndex] === undefined)
   ) {
     return reject(state, 'invalidSegment');
   }
-  const segmentIndex = forcedIndex ?? pickIndex(deps.random, wheel.length);
-  const part = forced.part ?? pickSlotPart(wheel[segmentIndex], deps.random());
+  const from = state.round.wheelPosition;
+  const travel =
+    forcedIndex === undefined
+      ? spinTravel(action.power ?? deps.random(), wheel.length)
+      : travelTo(from, forcedIndex, action.part ?? 'middle', wheel.length);
+  const wheelPosition = positionAfter(from, travel, wheel.length);
+  const { segmentIndex, part } = slotAt(wheelPosition, wheel);
   return {
-    state: { ...state, step: { kind: 'spinning', segmentIndex, part } },
-    events: [{ type: 'wheelSpun', segmentIndex, part }],
+    state: {
+      ...state,
+      round: { ...state.round, wheelPosition },
+      step: { kind: 'spinning', segmentIndex, part, from, travel },
+    },
+    events: [{ type: 'wheelSpun', segmentIndex, part, from, travel }],
   };
 }
 
@@ -183,7 +198,9 @@ function guessConsonant(state: GameState, input: string): ReduceResult {
   }
   const letter = normalizeLetter(input, CONSONANTS);
   if (letter === null) return reject(state, 'invalidLetter');
-  if (state.round.guessedLetters.includes(letter)) return reject(state, 'letterAlreadyGuessed');
+  if (state.round.guessedLetters.includes(letter)) {
+    return passTurn(state, [{ type: 'letterAlreadyCalled', letter }]);
+  }
   const { amount, perLetter } = state.step;
   return revealLetter(state, letter, (count) => (perLetter ? amount * count : amount), []);
 }
@@ -202,15 +219,17 @@ function guessVowel(state: GameState, input: string): ReduceResult {
   }
   const letter = normalizeLetter(input, VOWELS);
   if (letter === null) return reject(state, 'invalidLetter');
-  if (state.round.guessedLetters.includes(letter)) return reject(state, 'letterAlreadyGuessed');
   const team = state.round.activeTeam;
   const teams = updateTeam(state.teams, team, (t) => ({
     ...t,
     roundScore: t.roundScore - VOWEL_COST,
   }));
-  return revealLetter({ ...state, teams }, letter, () => 0, [
-    { type: 'vowelBought', team, cost: VOWEL_COST },
-  ]);
+  const bought: GameEvent = { type: 'vowelBought', team, cost: VOWEL_COST };
+  // The vowel is paid even when it was already proposed.
+  if (state.round.guessedLetters.includes(letter)) {
+    return passTurn({ ...state, teams }, [bought, { type: 'letterAlreadyCalled', letter }]);
+  }
+  return revealLetter({ ...state, teams }, letter, () => 0, [bought]);
 }
 
 /** Adds the letter to the board. Found: the team scores and plays again. Absent: the turn passes. */

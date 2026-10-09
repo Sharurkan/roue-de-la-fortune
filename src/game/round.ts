@@ -24,7 +24,7 @@ export function startRound(
       phase: 'playing',
       step: { kind: 'choosing' },
       usedPhraseIndexes: pick.used,
-      round: { phrase, guessedLetters: [], activeTeam: startingTeam },
+      round: { phrase, guessedLetters: [], activeTeam: startingTeam, wheelPosition: 0 },
     },
     events: [{ type: 'roundStarted', roundNumber: progress.roundNumber }],
   };

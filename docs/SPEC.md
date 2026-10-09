@@ -58,6 +58,8 @@ Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 - La Bonne Poche : deux enveloppes, une rouge et une bleue. L'une contient une somme tirée au hasard (500 à 3 000 €), l'autre rien ; l'enveloppe gagnante est tirée à chaque fois. Bonne enveloppe : la somme s'ajoute au score de manche et l'équipe rejoue. Enveloppe vide : la main passe.
 - Mystère (case bleue, « ? » doré puis 500 €) : le panneau se retourne. Une fois sur deux, 500 € par consonne comme une case normale. Sinon un effet tiré au hasard : +1 000 € ou score de manche doublé (l'équipe rejoue), banqueroute (comme la case BANQUEROUTE) ou moitié du score de manche perdue (la main passe).
 - Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
+- Force du lancer : sur le téléphone, on garde le doigt sur « Tourner la roue », une jauge monte (pleine en 1,5 s), et la roue part quand on lâche. La force décide de la distance : 2 tours, plus jusqu'à 2 tours de plus à pleine force (`game/config.ts`). La roue repart de là où elle s'est arrêtée : même force depuis la même position, même case. Sans force (clavier), la TV la tire au hasard.
+- Roue des enveloppes : la force décide de l'enveloppe qui s'arrête sous le pointeur, mais son contenu est tiré au hasard.
 
 Tour de jeu, l'équipe active peut :
 
@@ -83,7 +85,8 @@ Cases spéciales
 
 Lettres
 
-- Une lettre déjà proposée ne peut plus l'être (grisée sur le téléphone).
+- Manches 1 à 4 : les touches du téléphone restent toutes pareilles, il faut se souvenir des lettres. Une lettre déjà proposée fait perdre la main, comme à la télé : rien n'est gagné pour une consonne, la voyelle est payée quand même.
+- Finale : les lettres déjà proposées ou offertes sont barrées et bloquées.
 - Plus aucune consonne cachée dans la phrase : message « Il n'y a plus de consonnes » sur la TV et le téléphone, bouton de la roue grisé.
 - Plus aucune voyelle cachée : message « Il n'y a plus de voyelles » sur la TV et le téléphone, bouton d'achat grisé.
 
@@ -157,8 +160,10 @@ Phrases
 - Configuration avec un téléphone par équipe : nom de son équipe, liste des équipes inscrites, « Commencer » pour le maître.
 - Mode test (`&test` dans l'adresse de la manette) : choix de la manche de départ (1 à 4, ou la finale), et case forcée pour le prochain tour de roue (dont le milieu ou le bord de la case 5 000 €).
 - Énigme rapide : un gros bouton par équipe (équipes éliminées grisées), puis saisie de la réponse.
-- Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
-- Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
+- Tour : boutons « Tourner la roue » (appui long avec jauge de force), « Acheter une voyelle (250 €) », « Proposer la solution ».
+- Finale : lettres offertes (R S T L N E) et déjà choisies barrées, bien distinctes des touches grisées pendant une animation.
+- « Il n'y a plus de consonnes » / « de voyelles » : encadré doré bien visible, sur le téléphone et en permanence sur la TV.
+- Clavier de consonnes ou de voyelles selon l'étape.
 - Saisie de la solution avec « Valider » et « Annuler ».
 - Fin de manche : « Manche suivante » (« Passer à la finale » après la 4e manche).
 - Finale : « Tourner la roue des enveloppes », clavier de 3 consonnes et 1 voyelle, une seule réponse.
@@ -167,7 +172,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 9.
+- Version actuelle du protocole : 10.
 - Téléphone → TV :
   - `{ v, type: "hello", clientId }` au début de chaque connexion ;
   - `{ v, type: "chooseMode", mode }`, `{ v, type: "joinTeam", name }`, `{ v, type: "removeTeam", team }` avant la partie ;

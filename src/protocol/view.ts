@@ -26,6 +26,8 @@ const MAX_LETTERS = 26;
 const index = z.int().check(z.minimum(0));
 const amount = z.int();
 const letter = z.string().check(z.length(1));
+/** Wheel positions and travels, in segments. */
+const distance = z.number().check(z.minimum(0));
 const letters = z.array(letter).check(z.maxLength(MAX_LETTERS));
 
 const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
@@ -40,6 +42,8 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
     type: z.literal('wheelSpun'),
     segmentIndex: index,
     part: z.enum(['left', 'middle', 'right']),
+    from: distance,
+    travel: distance,
   }),
   z.object({ type: z.literal('bankrupt'), team: index }),
   z.object({ type: z.literal('landedOnPass'), team: index }),
@@ -58,6 +62,7 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('letterFound'), letter, count: index, gain: amount }),
   z.object({ type: z.literal('letterAbsent'), letter }),
+  z.object({ type: z.literal('letterAlreadyCalled'), letter }),
   z.object({ type: z.literal('vowelBought'), team: index, cost: amount }),
   z.object({ type: z.literal('turnPassed'), team: index }),
   z.object({ type: z.literal('noMoreConsonants') }),
@@ -65,7 +70,12 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('wrongSolution'), answer: z.string() }),
   z.object({ type: z.literal('roundWon'), team: index, amount }),
   z.object({ type: z.literal('finalStarted'), finalist: index }),
-  z.object({ type: z.literal('prizeWheelSpun'), prizeIndex: index }),
+  z.object({
+    type: z.literal('prizeWheelSpun'),
+    prizeIndex: index,
+    from: distance,
+    travel: distance,
+  }),
   z.object({ type: z.literal('finalLettersGiven'), letters }),
   z.object({ type: z.literal('finalLetterPicked'), letter }),
   z.object({ type: z.literal('finalLettersRevealed'), letters }),
@@ -93,6 +103,7 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
       'invalidRound',
       'invalidPocket',
       'invalidSegment',
+      'invalidPower',
       'teamEliminated',
     ]),
   }),

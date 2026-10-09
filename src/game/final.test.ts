@@ -32,6 +32,7 @@ function lastRoundOver(teams: Team[], winner: number): RoundOverState {
     round: {
       phrase: { theme: 'Film', text: 'Le Roi lion' },
       guessedLetters: [],
+      wheelPosition: 0,
       activeTeam: winner,
     },
   };
@@ -96,7 +97,13 @@ describe('final round', () => {
     const start = reduce(lastRoundOver(TEAMS, 1), { type: 'nextRound' }, deps()).state;
     const result = reduce(start, { type: 'spin' }, deps([prizeRandom(PRIZE.voyage)]));
     expect(inFinal(result.state).final.prizeIndex).toBe(PRIZE.voyage);
-    expect(result.events).toEqual([{ type: 'prizeWheelSpun', prizeIndex: PRIZE.voyage }]);
+    expect(result.events).toMatchObject([{ type: 'prizeWheelSpun', prizeIndex: PRIZE.voyage }]);
+  });
+
+  it('the force turns the envelope wheel, from where it stands', () => {
+    const start = reduce(lastRoundOver(TEAMS, 1), { type: 'nextRound' }, deps()).state;
+    const result = reduce(start, { type: 'spin', power: 1 }, deps());
+    expect(inFinal(result.state).step).toEqual({ kind: 'prizeSpinning', from: 0, travel: 32 });
   });
 
   it('gives R S T L N E once the small wheel stops', () => {

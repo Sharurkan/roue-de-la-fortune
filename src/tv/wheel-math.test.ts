@@ -1,42 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import {
-  bordersCrossed,
-  easeOutCubic,
-  segmentAngle,
-  segmentAtPointer,
-  targetRotation,
-} from './wheel-math';
+import { WHEELS } from '../game/config';
+import { positionAfter, slotAt, spinTravel } from '../game/wheel';
+import { bordersCrossed, easeOutCubic, segmentAngle, segmentAtPointer } from './wheel-math';
 
 const COUNT = 24;
 
-describe('targetRotation', () => {
-  it.each([0, 1, 7, 12, 23])('stops segment %i under the pointer', (segmentIndex) => {
-    for (const from of [0, 95, 1234.5, -40]) {
-      const end = targetRotation(from, {
-        segmentIndex,
-        segmentCount: COUNT,
-        fullTurns: 4,
-        offset: 0,
-      });
-      expect(segmentAtPointer(end, COUNT)).toBe(segmentIndex);
-    }
-  });
-
-  it('turns forward by at least the requested full turns', () => {
-    const end = targetRotation(100, {
-      segmentIndex: 3,
-      segmentCount: COUNT,
-      fullTurns: 4,
-      offset: 0,
-    });
-    expect(end - 100).toBeGreaterThanOrEqual(4 * 360);
-    expect(end - 100).toBeLessThan(5 * 360);
-  });
-
-  it('stays in the right segment with an offset', () => {
-    for (const offset of [-0.45, 0.45]) {
-      const end = targetRotation(0, { segmentIndex: 5, segmentCount: COUNT, fullTurns: 3, offset });
-      expect(segmentAtPointer(end, COUNT)).toBe(5);
+describe('the TV and the game agree on the result', () => {
+  it.each([0, 0.13, 0.5, 0.77, 1])('with a spin of force %d', (power) => {
+    const wheel = WHEELS[2] ?? [];
+    const angle = segmentAngle(wheel.length);
+    for (const from of [0, 3.4, 17.9]) {
+      const travel = spinTravel(power, wheel.length);
+      // The TV turns from -from × angle, by travel × angle.
+      const rotation = -from * angle + travel * angle;
+      const position = positionAfter(from, travel, wheel.length);
+      expect(segmentAtPointer(rotation, wheel.length)).toBe(slotAt(position, wheel).segmentIndex);
     }
   });
 });

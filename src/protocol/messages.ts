@@ -12,7 +12,7 @@ import {
 import { publicViewSchema, type PublicView } from './view';
 
 /** Bumped for the mode with one phone per team: phones and TVs must run the same version. */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 const version = z.literal(PROTOCOL_VERSION);
 const heartbeatSchema = z.object({ v: version, type: z.literal('heartbeat') });

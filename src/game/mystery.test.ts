@@ -8,6 +8,10 @@ import type { GameAction, GameState, PlayingState } from './state';
 const PHRASE: Phrase = { theme: 'Film', text: 'Le Roi lion' };
 const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
 const MYSTERY_SLOT = 12;
+const LAND_ON_MYSTERY: GameAction[] = [
+  { type: 'spin', segmentIndex: MYSTERY_SLOT },
+  { type: 'spinEnded' },
+];
 
 function deps(randoms: number[] = []): GameDeps {
   let call = 0;
@@ -43,15 +47,11 @@ function round3(): PlayingState {
   return { ...state, teams: state.teams.map((t, i) => (i === 0 ? { ...t, roundScore: 600 } : t)) };
 }
 
-/** Randoms: the slot, its part, then the panel (< 0.5: effect), then the effect. */
+/** Randoms: the panel (< 0.5: effect), then the effect. */
 function landOnMystery(panelRandom: number, effect?: MysteryEffect): ReduceResult {
   const effectRandom =
     effect === undefined ? 0 : (MYSTERY_EFFECTS.indexOf(effect) + 0.5) / MYSTERY_EFFECTS.length;
-  return apply(
-    round3(),
-    [{ type: 'spin' }, { type: 'spinEnded' }],
-    deps([(MYSTERY_SLOT + 0.5) / 24, 0.5, panelRandom, effectRandom]),
-  );
+  return apply(round3(), LAND_ON_MYSTERY, deps([panelRandom, effectRandom]));
 }
 
 describe('mystery panel', () => {
@@ -98,22 +98,14 @@ describe('mystery panel', () => {
   it('its bankrupt wipes out the total too, like the wheel one', () => {
     const start = round3();
     const withTotal = { ...start, teams: start.teams.map((t) => ({ ...t, totalScore: 900 })) };
-    const result = apply(
-      withTotal,
-      [{ type: 'spin' }, { type: 'spinEnded' }],
-      deps([(MYSTERY_SLOT + 0.5) / 24, 0.5, 0.2, 0.6]),
-    );
+    const result = apply(withTotal, LAND_ON_MYSTERY, deps([0.2, 0.6]));
     expect(playing(result.state).teams.map((t) => t.totalScore)).toEqual([0, 900]);
   });
 
   it('the other effects never touch the total', () => {
     const start = round3();
     const withTotal = { ...start, teams: start.teams.map((t) => ({ ...t, totalScore: 900 })) };
-    const result = apply(
-      withTotal,
-      [{ type: 'spin' }, { type: 'spinEnded' }],
-      deps([(MYSTERY_SLOT + 0.5) / 24, 0.5, 0.2, 0.9]),
-    );
+    const result = apply(withTotal, LAND_ON_MYSTERY, deps([0.2, 0.9]));
     expect(playing(result.state).teams[0]?.totalScore).toBe(900);
   });
 });

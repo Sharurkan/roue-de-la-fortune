@@ -15,6 +15,7 @@ export type RejectionReason =
   | 'invalidRound'
   | 'invalidPocket'
   | 'invalidSegment'
+  | 'invalidPower'
   | 'teamEliminated';
 
 export type GameEvent =
@@ -25,7 +26,7 @@ export type GameEvent =
   | { type: 'tossUpWon'; team: number }
   | { type: 'tossUpFailed'; team: number }
   | { type: 'roundStarted'; roundNumber: number }
-  | { type: 'wheelSpun'; segmentIndex: number; part: SlotPart }
+  | { type: 'wheelSpun'; segmentIndex: number; part: SlotPart; from: number; travel: number }
   | { type: 'bankrupt'; team: number }
   | { type: 'landedOnPass'; team: number }
   | { type: 'pocketOffered'; team: number }
@@ -40,6 +41,8 @@ export type GameEvent =
     }
   | { type: 'letterFound'; letter: string; count: number; gain: number }
   | { type: 'letterAbsent'; letter: string }
+  /** A letter proposed a second time: like on TV, the turn passes. */
+  | { type: 'letterAlreadyCalled'; letter: string }
   | { type: 'vowelBought'; team: number; cost: number }
   | { type: 'turnPassed'; team: number }
   | { type: 'noMoreConsonants' }
@@ -47,7 +50,7 @@ export type GameEvent =
   | { type: 'wrongSolution'; answer: string }
   | { type: 'roundWon'; team: number; amount: number }
   | { type: 'finalStarted'; finalist: number }
-  | { type: 'prizeWheelSpun'; prizeIndex: number }
+  | { type: 'prizeWheelSpun'; prizeIndex: number; from: number; travel: number }
   | { type: 'finalLettersGiven'; letters: string[] }
   | { type: 'finalLetterPicked'; letter: string }
   | { type: 'finalLettersRevealed'; letters: string[] }

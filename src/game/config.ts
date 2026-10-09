@@ -15,6 +15,14 @@ export type WheelSegment =
 /** Share of the jackpot slot taken by the bankrupt on each of its edges. */
 export const JACKPOT_SIDE_SHARE = 0.25;
 
+/**
+ * The force of a spin, from 0 to 1, decides how far the wheel goes: always
+ * SPIN_MIN_TURNS full turns, plus up to SPIN_POWER_TURNS more at full force.
+ * The same force from the same place always gives the same segment.
+ */
+export const SPIN_MIN_TURNS = 2;
+export const SPIN_POWER_TURNS = 2;
+
 const v = (amount: number): WheelSegment => ({ kind: 'value', amount });
 const BANKRUPT: WheelSegment = { kind: 'bankrupt' };
 const PASS: WheelSegment = { kind: 'pass' };

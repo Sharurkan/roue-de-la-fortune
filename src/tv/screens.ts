@@ -1,11 +1,13 @@
 import { DEFAULT_TEAM_NAME_PREFIX, FINAL_PRIZES, WHEELS } from '../game/config';
 import { finalRevealedLetters } from '../game/final';
 import { orderByRoundScore, type RankedTeam } from '../game/ranking';
+import { hasHiddenConsonants, hasHiddenVowels } from '../game/selectors';
 import type { PlayMode, RoomView } from '../protocol/room';
 import type {
   FinalResult,
   FinalState,
   PlayingState,
+  Round,
   RoundOverState,
   Team,
   PocketColor,
@@ -203,6 +205,15 @@ function createPockets(): Pockets {
   };
 }
 
+/** Stays on screen as long as it is true, unlike the banner. */
+function exhaustedLetters(round: Round): string {
+  const consonants = !hasHiddenConsonants(round);
+  const vowels = !hasHiddenVowels(round);
+  if (consonants && vowels) return TV_TEXTS.noMoreLetters;
+  if (consonants) return TV_TEXTS.noMoreConsonants;
+  return vowels ? TV_TEXTS.noMoreVowels : '';
+}
+
 export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
   const wheels = WHEELS.map((segments) => createWheel(segmentFaces(segments), onTick));
@@ -263,6 +274,8 @@ export function createGameScreen(onTick: () => void): GameScreen {
 
   function renderFinal(state: FinalState): void {
     showWheel(prizeWheel);
+    // While spinning, the animation moves the wheel itself.
+    if (state.step.kind !== 'prizeSpinning') prizeWheel.place(state.final.wheelPosition);
     header.textContent = TV_TEXTS.finalTitle;
     theme.textContent = state.final.phrase.theme;
     showPhrase(state.final.phrase.text, finalRevealedLetters(state));
@@ -271,10 +284,12 @@ export function createGameScreen(onTick: () => void): GameScreen {
     const picked = state.final.pickedLetters.join(' ');
     letters.textContent = `${TV_TEXTS.pickedLetters} : ${picked === '' ? TV_TEXTS.noUsedLetters : picked}`;
     hint.textContent = state.step.kind === 'pickingLetters' ? TV_TEXTS.finalHint : '';
+    hint.classList.remove('alert');
   }
 
   function renderTossUp(state: TossUpState): void {
     showWheel(roundWheel(state.roundNumber));
+    currentWheel.place(0);
     const { tossUp } = state;
     header.textContent = TV_TEXTS.tossUp(state.roundNumber);
     theme.textContent = tossUp.phrase.theme;
@@ -286,6 +301,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     letters.textContent = '';
     const tossUpHint = phones.multi ? TV_TEXTS.tossUpHintMulti : TV_TEXTS.tossUpHint;
     hint.textContent = tossUp.buzzer === null ? tossUpHint : '';
+    hint.classList.remove('alert');
   }
 
   function render(state: BoardState): void {
@@ -299,6 +315,9 @@ export function createGameScreen(onTick: () => void): GameScreen {
     }
     showWheel(roundWheel(state.roundNumber));
     const { round } = state;
+    if (state.phase === 'roundOver' || state.step.kind !== 'spinning') {
+      currentWheel.place(round.wheelPosition);
+    }
     header.textContent = TV_TEXTS.round(state.roundNumber);
     theme.textContent = round.phrase.theme;
     showPhrase(round.phrase.text, round.guessedLetters);
@@ -310,11 +329,13 @@ export function createGameScreen(onTick: () => void): GameScreen {
     letters.textContent = `${TV_TEXTS.usedLetters} : ${used === '' ? TV_TEXTS.noUsedLetters : used}`;
     const choosingPocket = state.phase === 'playing' && state.step.kind === 'choosingPocket';
     pockets.show(choosingPocket);
+    const alert = state.phase === 'playing' ? exhaustedLetters(round) : '';
     hint.textContent = choosingPocket
       ? TV_TEXTS.pocketHint
       : state.phase === 'roundOver'
         ? TV_TEXTS.waitingForNextRound
-        : '';
+        : alert;
+    hint.classList.toggle('alert', !choosingPocket && alert !== '');
   }
 
   return {

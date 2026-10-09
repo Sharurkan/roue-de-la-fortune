@@ -75,8 +75,65 @@ function button(
   return element;
 }
 
+/** Time to fill the gauge, holding the button down. */
+const GAUGE_FILL_MS = 1500;
+
+/**
+ * Hold to fill the gauge, release to spin: the longer the hold, the stronger
+ * the spin. Without a hold (keyboard), the force is left to the TV.
+ */
+function powerButton(
+  text: string,
+  onRelease: (power: number | undefined) => void,
+  disabled: boolean,
+): HTMLButtonElement {
+  const fill = createElement('span', { className: 'gauge-fill' });
+  const label = createElement('span', { className: 'gauge-label', text });
+  const element = createElement('button', { className: 'big-button power-button' }, [fill, label]);
+  element.type = 'button';
+  element.disabled = disabled;
+  let startedAt: number | null = null;
+  const power = (now: number): number =>
+    startedAt === null ? 0 : Math.min((now - startedAt) / GAUGE_FILL_MS, 1);
+  const draw = (now: number): void => {
+    if (startedAt === null) return;
+    fill.style.clipPath = `inset(0 ${String(100 - power(now) * 100)}% 0 0)`;
+    requestAnimationFrame(draw);
+  };
+  const reset = (): void => {
+    startedAt = null;
+    fill.style.clipPath = '';
+    label.textContent = text;
+  };
+  element.addEventListener('pointerdown', (event) => {
+    element.setPointerCapture(event.pointerId);
+    startedAt = performance.now();
+    label.textContent = texts.releaseToSpin;
+    requestAnimationFrame(draw);
+  });
+  element.addEventListener('pointerup', () => {
+    if (startedAt === null) return;
+    const value = power(performance.now());
+    startedAt = null;
+    onRelease(value);
+  });
+  element.addEventListener('pointercancel', reset);
+  // A long press must not open the text selection menu.
+  element.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+  });
+  element.addEventListener('click', (event) => {
+    if (event.detail === 0) onRelease(undefined);
+  });
+  return element;
+}
+
 function note(text: string): HTMLElement {
   return createElement('p', { className: 'note', text });
+}
+
+function alert(text: string): HTMLElement {
+  return createElement('p', { className: 'alert', text });
 }
 
 function firstRoundChoice(context: ScreenContext): HTMLElement[] {
@@ -146,12 +203,12 @@ function testSpinOptions(context: ScreenContext): ReturnType<typeof forcedSpinOp
   return forcedSpinOptions(context.view.roundNumber, texts.segmentLabel);
 }
 
-function spinAction(context: ScreenContext): PhoneAction {
+function spinAction(context: ScreenContext, power: number | undefined): PhoneAction {
   const forced = context.setup.testMode
     ? testSpinOptions(context)[context.setup.forcedSpin]
     : undefined;
   return forced === undefined
-    ? { type: 'spin' }
+    ? { type: 'spin', power }
     : { type: 'spin', segmentIndex: forced.segmentIndex, part: forced.part };
 }
 
@@ -177,13 +234,14 @@ function turnButtons(
 ): HTMLElement[] {
   const { enabled, send } = context;
   return [
-    button(
+    powerButton(
       texts.spin,
-      () => {
-        send(spinAction(context));
+      (power) => {
+        send(spinAction(context, power));
       },
-      { disabled: !enabled || !canSpin },
+      !enabled || !canSpin,
     ),
+    ...(canSpin ? [note(texts.holdToSpin)] : []),
     button(
       texts.buyVowel(VOWEL_COST),
       () => {
@@ -203,6 +261,11 @@ function turnButtons(
   ];
 }
 
+/** Only the final blocks letters already proposed: in a round, the players must remember. */
+function usedLetters(view: PublicView): readonly string[] {
+  return view.phase === 'final' ? view.guessedLetters : [];
+}
+
 function keyboard(
   context: ScreenContext,
   letters: string,
@@ -212,14 +275,14 @@ function keyboard(
   return createElement(
     'div',
     { className: 'keyboard' },
-    letterKeys(letters, context.view.guessedLetters).map(({ letter, used }) =>
+    letterKeys(letters, usedLetters(context.view)).map(({ letter, used }) =>
       button(
         letter,
         () => {
           context.send(toAction(letter));
         },
         {
-          className: 'key',
+          className: used ? 'key used' : 'key',
           disabled: used || locked || !context.enabled,
         },
       ),
@@ -374,13 +437,14 @@ function finalResultLine(view: PublicView): HTMLElement[] {
 function prizeWheelScreen(context: ScreenContext, spinning: boolean): HTMLElement {
   return createElement('div', { className: 'screen' }, [
     ...(spinning ? [createElement('p', { className: 'headline', text: texts.prizeSpinning })] : []),
-    button(
+    powerButton(
       texts.spinPrizeWheel,
-      () => {
-        context.send({ type: 'spin' });
+      (power) => {
+        context.send({ type: 'spin', power });
       },
-      { disabled: spinning || !context.enabled },
+      spinning || !context.enabled,
     ),
+    ...(spinning ? [] : [note(texts.holdToSpin)]),
     confirmButton(context, 'abandonGame'),
   ]);
 }
@@ -600,10 +664,10 @@ function gameScreen(screen: PhoneScreen, context: ScreenContext): HTMLElement {
       );
     case 'turn':
       return createElement('div', { className: 'screen' }, [
+        ...(screen.noMoreConsonants ? [alert(texts.noMoreConsonants)] : []),
+        ...(screen.noMoreVowels ? [alert(texts.noMoreVowels)] : []),
         ...forcedSpinChoice(context),
         ...turnButtons(context, screen.canSpin, screen.canBuyVowel),
-        ...(screen.noMoreConsonants ? [note(texts.noMoreConsonants)] : []),
-        ...(screen.noMoreVowels ? [note(texts.noMoreVowels)] : []),
         confirmButton(context, 'abandonGame'),
       ]);
     case 'spinning':
