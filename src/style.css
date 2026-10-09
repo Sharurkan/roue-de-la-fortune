@@ -18,11 +18,11 @@
   --ok: #4ade80;
   --error: #ff6b6b;
   /* Duck blue trim: wheel rim, board frame, active team. */
-  --trim-light: #7fcfd6;
-  --trim-main: #0a6670;
-  --trim-dark: #043f46;
-  --trim-deep: #022a2f;
-  --trim-shadow: #011a1d;
+  --trim-light: #4cc6d2;
+  --trim-main: #005f6b;
+  --trim-dark: #003a42;
+  --trim-deep: #00262c;
+  --trim-shadow: #00181c;
   --accent: var(--trim-light);
   --font-game: 'Baloo 2 Variable', system-ui, sans-serif;
   --font-title: 'Title', var(--font-game);
