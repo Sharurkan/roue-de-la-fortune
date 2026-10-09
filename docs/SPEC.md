@@ -8,8 +8,10 @@ On teste en vrai, puis on améliore. Priorité : simple, fiable, code propre.
 ## Matériel et usage
 
 - La TV affiche le jeu via le navigateur Silk du Fire TV Stick, en plein écran 16:9.
-- Un seul téléphone sert de manette. On le passe à l'équipe dont c'est le tour.
-- Les deux appareils sont sur le même Wi-Fi.
+- Deux modes, choisis au début de chaque partie (voir « Modes de jeu ») :
+  - un seul téléphone sert de manette, on le passe à l'équipe dont c'est le tour ;
+  - un téléphone par équipe.
+- La TV et les téléphones sont sur le même Wi-Fi.
 - Sur la TV, la seule interaction est un appui sur OK pour activer le son.
 
 ## Connexion
@@ -18,12 +20,27 @@ On teste en vrai, puis on améliore. Priorité : simple, fiable, code propre.
 2. Elle affiche ce code en grand, plus un QR code vers `?mode=manette&code=XXXX`.
 3. Le téléphone scanne le QR code et se connecte tout seul.
 4. Secours : ouvrir `?mode=manette` et taper le code.
-5. Le téléphone garde le code en mémoire et se reconnecte seul après une coupure.
+5. Le téléphone garde le code et un identifiant aléatoire en mémoire. Il se reconnecte seul après une coupure et retrouve son équipe.
 6. La TV garde le code et la partie en mémoire. Un rechargement ne perd rien.
 7. Si le code est déjà pris sur le serveur PeerJS, réessayer puis générer un nouveau code.
 8. États de connexion visibles des deux côtés : en attente, connecté, déconnecté, erreur.
 
 Note : la mise en relation passe par le serveur public gratuit de PeerJS. Ensuite, les échanges sont directs.
+
+## Modes de jeu
+
+- Le premier téléphone connecté est le **maître**. Il choisit le mode, et peut en changer entre deux parties.
+- Un seul téléphone : une nouvelle connexion remplace l'ancienne. Le téléphone remplacé affiche « Un autre téléphone a pris la main » et ne se reconnecte plus seul (bouton « Reprendre la main »).
+- Un téléphone par équipe (4 au plus) :
+  - Chaque téléphone scanne le QR code et tape le nom de son équipe. Ordre de jeu : ordre d'arrivée.
+  - La TV liste les équipes inscrites et leur état (connecté, déconnecté).
+  - Le maître joue aussi pour son équipe. Il peut retirer une équipe inscrite par erreur, puis lance la partie (2 équipes au moins, dont la sienne).
+  - Seule l'équipe dont c'est le tour peut jouer. Les autres téléphones voient « Ce n'est pas ton tour : c'est à X », boutons grisés.
+  - Énigme rapide : chaque téléphone a son bouton « BUZZ ! ». Le premier buzz reçu par la TV gagne.
+  - Finale : seul le finaliste joue.
+  - Manche suivante, abandon, nouvelle partie : maître uniquement.
+  - Téléphone de l'équipe active déconnecté : la TV l'indique, on attend sa reconnexion. Le maître peut aussi « Jouer à la place de X » pour ce tour (jamais buzzer à sa place).
+- La TV garde le mode, le maître et les équipes. Un rechargement ne perd rien.
 
 ## Règles du jeu
 
@@ -89,6 +106,7 @@ Fin de manche
 - Énigme tirée d'une liste à part, de 3 mots au plus.
 - Une case au hasard se dévoile toutes les 1,5 s (`game/config.ts`), jusqu'à un buzz.
 - Un seul téléphone : les joueurs crient « Buzz ! », celui qui tient le téléphone touche l'équipe la plus rapide.
+- Un téléphone par équipe : chaque équipe buzze sur son téléphone.
 - Au buzz, les lettres s'arrêtent. L'équipe a un seul essai, sans minuteur ni annulation.
 - Bonne réponse : l'équipe commence la manche. Aucun gain.
 - Mauvaise réponse : l'équipe est éliminée de cette énigme, les lettres reprennent.
@@ -133,8 +151,10 @@ Phrases
 
 ## Manette (téléphone)
 
-- Affiche : manche, équipe active, son score, message en cours.
-- Configuration : nombre d'équipes, noms, bouton « Commencer ».
+- Affiche : manche, équipe active, son score, message en cours. Avec un téléphone par équipe : « Ton équipe : X ».
+- Choix du mode (maître seulement).
+- Configuration avec un seul téléphone : nombre d'équipes, noms, bouton « Commencer ».
+- Configuration avec un téléphone par équipe : nom de son équipe, liste des équipes inscrites, « Commencer » pour le maître.
 - Mode test (`&test` dans l'adresse de la manette) : choix de la manche de départ (1 à 4, ou la finale), et case forcée pour le prochain tour de roue (dont le milieu ou le bord de la case 5 000 €).
 - Énigme rapide : un gros bouton par équipe (équipes éliminées grisées), puis saisie de la réponse.
 - Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
@@ -147,16 +167,22 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 8.
-- Téléphone → TV : `{ v, type: "action", action }`.
-- TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
+- Version actuelle du protocole : 9.
+- Téléphone → TV :
+  - `{ v, type: "hello", clientId }` au début de chaque connexion ;
+  - `{ v, type: "chooseMode", mode }`, `{ v, type: "joinTeam", name }`, `{ v, type: "removeTeam", team }` avant la partie ;
+  - `{ v, type: "action", action }`.
+- TV → téléphone :
+  - `{ v, type: "state", view, room }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin. `room` est propre à chaque téléphone : mode, maître ou non, son équipe, équipes inscrites ;
+  - `{ v, type: "replaced" }` au téléphone remplacé, avec un seul téléphone.
+- La TV vérifie qui envoie chaque message (maître, équipe dont c'est le tour) et ignore le reste.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.
 - Tous les messages sont validés avec zod à la réception.
 - Version différente : message ignoré et erreur affichée (« Mets à jour la page »).
 
 ## Hors périmètre (pour l'instant)
 
-- Plusieurs téléphones en même temps
+- Reprendre la place d'une équipe en pleine partie avec un autre téléphone
 - Phrases personnalisées
 - Cases spéciales avancées, minuteur
 - Mode hors ligne sans serveur PeerJS

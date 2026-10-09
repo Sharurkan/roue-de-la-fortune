@@ -36,7 +36,7 @@ src/
   protocol/  Types et schémas zod des messages TV ↔ téléphone (versionnés)
   net/       Connexion PeerJS : code de salle, envoi, réception, reconnexion
   storage/   Sauvegarde locale (localStorage), avec gestion d'erreurs
-  tv/        Vue TV : roue, panneau de lettres, scores, sons, QR code
+  tv/        Vue TV : roue, panneau de lettres, scores, sons, QR code, salle des téléphones
   phone/     Vue manette : boutons, clavier de lettres, saisie de solution
   shared/    Utilitaires communs (DOM sûr, lecture de l'URL)
   main.ts    Choix du mode selon l'URL
@@ -74,7 +74,7 @@ Principes :
 - Le reducer refuse toute action invalide pour la phase en cours
 - Jamais d'`innerHTML` avec du texte variable. Utiliser `textContent` ou les helpers de `shared/`
 - La solution n'est jamais envoyée au téléphone
-- Une seule manette connectée à la fois : une nouvelle connexion remplace l'ancienne
+- Un seul téléphone : une nouvelle connexion remplace l'ancienne. Un téléphone par équipe : la TV vérifie chaque action (`game/permissions.ts`)
 - Pas de données personnelles, pas de secrets dans le code
 - `npm audit` sans vulnérabilité haute ou critique
 
