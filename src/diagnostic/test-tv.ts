@@ -88,9 +88,9 @@ export function startTestTv(root: HTMLElement): void {
     decode: decodePing,
     heartbeat: HEARTBEAT,
     onInvalid: () => undefined,
-    onMessage: (ping) => {
+    onMessage: (ping, link) => {
       const pong: PongMessage = { type: 'pong', seq: ping.seq, sentAt: ping.sentAt };
-      host.send(pong);
+      host.send(link, pong);
       pingCount += 1;
       pingsElement.textContent = texts.pingsReceived(pingCount);
       sound?.beep();

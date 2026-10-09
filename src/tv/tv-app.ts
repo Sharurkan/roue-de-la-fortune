@@ -296,7 +296,11 @@ export function startTv(root: HTMLElement): void {
   }
 
   function sendView(events: readonly GameEvent[]): void {
-    host.send(stateMessage(toPublicView(state, events, slowAnimations > 0), SINGLE_PHONE_ROOM));
+    const message = stateMessage(
+      toPublicView(state, events, slowAnimations > 0),
+      SINGLE_PHONE_ROOM,
+    );
+    for (const link of host.links()) host.send(link, message);
   }
 
   /** Queues the animations of a result. The phone is told when the slow ones are over. */
@@ -346,6 +350,10 @@ export function startTv(root: HTMLElement): void {
     },
     decode: parsePhoneMessage,
     heartbeat: HEARTBEAT,
+    onLinkOpen: (link) => {
+      // One phone at a time: a new phone replaces the previous one.
+      for (const other of host.links()) if (other !== link) host.close(other);
+    },
     onMessage: (message) => {
       if (message.type === 'action') dispatch(message.action);
     },
