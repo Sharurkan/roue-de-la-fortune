@@ -15,7 +15,6 @@
   --bg: #1a1c1f;
   --fg: #ffffff;
   --muted: #b9bdc4;
-  --accent: #ffd23f;
   --ok: #4ade80;
   --error: #ff6b6b;
   /* Duck blue trim: wheel rim, board frame, active team. */
@@ -24,6 +23,7 @@
   --trim-dark: #043f46;
   --trim-deep: #022a2f;
   --trim-shadow: #011a1d;
+  --accent: var(--trim-light);
   --font-game: 'Baloo 2 Variable', system-ui, sans-serif;
   --font-title: 'Title', var(--font-game);
   font-family: var(--font-game);
@@ -110,8 +110,8 @@ button:disabled {
 }
 
 .tv-sound:focus {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--trim-main);
+  color: var(--fg);
   outline: none;
 }
 

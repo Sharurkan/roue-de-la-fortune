@@ -33,17 +33,20 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+  /* Keeps the sound button clear of the status line in the corner. */
+  padding-bottom: 3vh;
   text-align: center;
 }
 
 .setup h1 {
-  font-size: 9vh;
+  font-size: 8vh;
   color: var(--accent);
 }
 
 .setup-code {
-  font-size: 14vh;
-  font-weight: bold;
+  font-family: var(--font-title);
+  font-size: 12vh;
+  line-height: 1.2;
   letter-spacing: 0.3em;
   color: var(--accent);
 }
@@ -56,8 +59,8 @@
 
 .setup-qr .qr {
   display: block;
-  width: 30vh;
-  height: 30vh;
+  width: 26vh;
+  height: 26vh;
 }
 
 .setup-help {
@@ -77,7 +80,7 @@
 
 .connection {
   margin: 1vh 0;
-  font-size: 4vh;
+  font-size: 3.5vh;
 }
 
 .connection[data-kind='connected'] {
@@ -90,8 +93,8 @@
 
 .sound-button {
   margin-top: 1vh;
-  padding: 1.5vh 3vw;
-  font-size: 3.5vh;
+  padding: 1vh 3vw;
+  font-size: 3vh;
   border: 0.5vh solid var(--accent);
   border-radius: 1vh;
   background: transparent;
@@ -99,8 +102,8 @@
 }
 
 .sound-button:focus {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--trim-main);
+  color: var(--fg);
   outline: none;
 }
 
