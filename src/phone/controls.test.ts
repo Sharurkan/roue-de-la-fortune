@@ -66,7 +66,7 @@ describe('describeScreen', () => {
   it('asks for a consonant with the segment value', () => {
     expect(screenAfter([...START, { type: 'spin' }, { type: 'spinEnded' }])).toEqual({
       kind: 'consonant',
-      value: 300,
+      value: 150,
     });
   });
 

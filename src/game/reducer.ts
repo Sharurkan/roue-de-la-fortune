@@ -16,7 +16,7 @@ import {
   ROUND_COUNT,
   VOWEL_COST,
   VOWELS,
-  WHEEL_SEGMENTS,
+  type WheelSegment,
 } from './config';
 import type { GameEvent } from './events';
 import {
@@ -34,6 +34,7 @@ import {
 } from './selectors';
 import type { GameAction, GameState, PlayingState, Round } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
+import { pickSlotPart, wheelForRound } from './wheel';
 import { buzz, revealTossUpLetter, startTossUp, submitTossUpAnswer } from './toss-up';
 
 export type { GameDeps, ReduceResult } from './common';
@@ -97,10 +98,12 @@ function spin(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase === 'final') return spinPrizeWheel(state, deps);
   if (!isChoosing(state)) return reject(state, 'wrongPhase');
   if (!hasHiddenConsonants(state.round)) return reject(state, 'noConsonantsLeft');
-  const segmentIndex = pickIndex(deps.random, WHEEL_SEGMENTS.length);
+  const wheel = wheelForRound(state.roundNumber);
+  const segmentIndex = pickIndex(deps.random, wheel.length);
+  const part = pickSlotPart(wheel[segmentIndex], deps.random());
   return {
-    state: { ...state, step: { kind: 'spinning', segmentIndex } },
-    events: [{ type: 'wheelSpun', segmentIndex }],
+    state: { ...state, step: { kind: 'spinning', segmentIndex, part } },
+    events: [{ type: 'wheelSpun', segmentIndex, part }],
   };
 }
 
@@ -109,12 +112,23 @@ function spinEnded(state: GameState): ReduceResult {
   if (state.phase !== 'playing' || state.step.kind !== 'spinning') {
     return reject(state, 'wrongPhase');
   }
-  const segment = WHEEL_SEGMENTS[state.step.segmentIndex];
+  const slot = wheelForRound(state.roundNumber)[state.step.segmentIndex];
+  // The edges of the jackpot slot are bankrupts.
+  const segment: WheelSegment | undefined =
+    slot?.kind === 'jackpot' && state.step.part !== 'middle' ? { kind: 'bankrupt' } : slot;
   const team = state.round.activeTeam;
   switch (segment?.kind) {
     case 'value':
+    case 'jackpot':
       return {
-        state: { ...state, step: { kind: 'guessingConsonant', amount: segment.amount } },
+        state: {
+          ...state,
+          step: {
+            kind: 'guessingConsonant',
+            amount: segment.amount,
+            perLetter: segment.kind === 'value',
+          },
+        },
         events: [],
       };
     case 'bankrupt': {
@@ -136,7 +150,8 @@ function guessConsonant(state: GameState, input: string): ReduceResult {
   const letter = normalizeLetter(input, CONSONANTS);
   if (letter === null) return reject(state, 'invalidLetter');
   if (state.round.guessedLetters.includes(letter)) return reject(state, 'letterAlreadyGuessed');
-  return revealLetter(state, letter, state.step.amount, []);
+  const { amount, perLetter } = state.step;
+  return revealLetter(state, letter, (count) => (perLetter ? amount * count : amount), []);
 }
 
 function buyVowel(state: GameState): ReduceResult {
@@ -159,7 +174,7 @@ function guessVowel(state: GameState, input: string): ReduceResult {
     ...t,
     roundScore: t.roundScore - VOWEL_COST,
   }));
-  return revealLetter({ ...state, teams }, letter, 0, [
+  return revealLetter({ ...state, teams }, letter, () => 0, [
     { type: 'vowelBought', team, cost: VOWEL_COST },
   ]);
 }
@@ -168,7 +183,7 @@ function guessVowel(state: GameState, input: string): ReduceResult {
 function revealLetter(
   state: PlayingState,
   letter: string,
-  amountPerLetter: number,
+  gainFor: (count: number) => number,
   events: GameEvent[],
 ): ReduceResult {
   const round = { ...state.round, guessedLetters: [...state.round.guessedLetters, letter] };
@@ -176,7 +191,7 @@ function revealLetter(
   if (count === 0) {
     return passTurn({ ...state, round }, [...events, { type: 'letterAbsent', letter }]);
   }
-  const gain = amountPerLetter * count;
+  const gain = gainFor(count);
   const teams = updateTeam(state.teams, round.activeTeam, (t) => ({
     ...t,
     roundScore: t.roundScore + gain,

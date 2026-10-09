@@ -6,7 +6,9 @@ const teamName = (team: number) => ['Rouges', 'Bleus'][team] ?? '';
 describe('messageFor', () => {
   it('says nothing when there is nothing to say', () => {
     expect(messageFor([], teamName)).toBeNull();
-    expect(messageFor([{ type: 'wheelSpun', segmentIndex: 3 }], teamName)).toBeNull();
+    expect(
+      messageFor([{ type: 'wheelSpun', segmentIndex: 3, part: 'middle' }], teamName),
+    ).toBeNull();
   });
 
   it('sums up a found consonant', () => {

@@ -1,4 +1,4 @@
-import { FINAL_PRIZES, WHEEL_SEGMENTS } from '../game/config';
+import { FINAL_PRIZES, WHEELS } from '../game/config';
 import { finalRevealedLetters } from '../game/final';
 import type { RankedTeam } from '../game/ranking';
 import type {
@@ -64,7 +64,8 @@ export function createSetupScreen(): SetupScreen {
 export interface GameScreen {
   element: HTMLElement;
   board: Board;
-  wheel: Wheel;
+  /** The wheel of the round on screen. */
+  wheel(): Wheel;
   prizeWheel: Wheel;
   showMessage(text: string): void;
   /** Brief red flash of the whole screen. */
@@ -107,7 +108,7 @@ function renderTeams(
 
 export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
-  const wheel = createWheel(segmentFaces(WHEEL_SEGMENTS), onTick);
+  const wheels = WHEELS.map((segments) => createWheel(segmentFaces(segments), onTick));
   const prizeWheel = createWheel(envelopeFaces(FINAL_PRIZES.length), onTick);
   prizeWheel.element.classList.add('prize-wheel');
   const header = createElement('header', { className: 'game-header' });
@@ -119,20 +120,34 @@ export function createGameScreen(onTick: () => void): GameScreen {
   const element = createElement('section', { className: 'game' }, [
     header,
     createElement('div', { className: 'board-frame' }, [board.element, theme]),
-    createElement('div', { className: 'wheel-slot' }, [wheel.element, prizeWheel.element]),
+    createElement('div', { className: 'wheel-slot' }, [
+      ...wheels.map((w) => w.element),
+      prizeWheel.element,
+    ]),
     banner,
     teams,
     letters,
     hint,
   ]);
 
+  let currentWheel: Wheel = prizeWheel;
+
+  /** Only one wheel is visible: the one of the round, or the envelope wheel in the final. */
+  function showWheel(shown: Wheel): void {
+    currentWheel = shown;
+    for (const w of [...wheels, prizeWheel]) w.element.classList.toggle('is-hidden', w !== shown);
+  }
+
+  function roundWheel(roundNumber: number): Wheel {
+    return wheels[Math.min(roundNumber, wheels.length) - 1] ?? prizeWheel;
+  }
+
   function showPhrase(text: string, revealed: readonly string[]): void {
     if (board.phrase() !== text) board.setPhrase(text, revealed);
   }
 
   function renderFinal(state: FinalState): void {
-    wheel.element.classList.add('is-hidden');
-    prizeWheel.element.classList.remove('is-hidden');
+    showWheel(prizeWheel);
     header.textContent = TV_TEXTS.finalTitle;
     theme.textContent = state.final.phrase.theme;
     showPhrase(state.final.phrase.text, finalRevealedLetters(state));
@@ -144,8 +159,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
   }
 
   function renderTossUp(state: TossUpState): void {
-    wheel.element.classList.remove('is-hidden');
-    prizeWheel.element.classList.add('is-hidden');
+    showWheel(roundWheel(state.roundNumber));
     const { tossUp } = state;
     header.textContent = TV_TEXTS.tossUp(state.roundNumber);
     theme.textContent = tossUp.phrase.theme;
@@ -167,8 +181,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
       renderTossUp(state);
       return;
     }
-    wheel.element.classList.remove('is-hidden');
-    prizeWheel.element.classList.add('is-hidden');
+    showWheel(roundWheel(state.roundNumber));
     const { round } = state;
     header.textContent = TV_TEXTS.round(state.roundNumber);
     theme.textContent = round.phrase.theme;
@@ -184,7 +197,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
   return {
     element,
     board,
-    wheel,
+    wheel: () => currentWheel,
     prizeWheel,
     showMessage: (text) => {
       banner.textContent = text;

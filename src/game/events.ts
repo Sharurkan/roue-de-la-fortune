@@ -1,3 +1,5 @@
+import type { SlotPart } from './state';
+
 export type RejectionReason =
   | 'wrongPhase'
   | 'invalidTeamCount'
@@ -19,7 +21,7 @@ export type GameEvent =
   | { type: 'tossUpWon'; team: number }
   | { type: 'tossUpFailed'; team: number }
   | { type: 'roundStarted'; roundNumber: number }
-  | { type: 'wheelSpun'; segmentIndex: number }
+  | { type: 'wheelSpun'; segmentIndex: number; part: SlotPart }
   | { type: 'bankrupt'; team: number }
   | { type: 'landedOnPass'; team: number }
   | { type: 'letterFound'; letter: string; count: number; gain: number }

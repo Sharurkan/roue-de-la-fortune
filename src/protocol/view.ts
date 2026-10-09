@@ -36,7 +36,11 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tossUpWon'), team: index }),
   z.object({ type: z.literal('tossUpFailed'), team: index }),
   z.object({ type: z.literal('roundStarted'), roundNumber: index }),
-  z.object({ type: z.literal('wheelSpun'), segmentIndex: index }),
+  z.object({
+    type: z.literal('wheelSpun'),
+    segmentIndex: index,
+    part: z.enum(['left', 'middle', 'right']),
+  }),
   z.object({ type: z.literal('bankrupt'), team: index }),
   z.object({ type: z.literal('landedOnPass'), team: index }),
   z.object({ type: z.literal('letterFound'), letter, count: index, gain: amount }),

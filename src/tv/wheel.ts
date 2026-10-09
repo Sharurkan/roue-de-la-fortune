@@ -1,4 +1,5 @@
 import type { WheelSegment } from '../game/config';
+import type { SlotPart } from '../game/state';
 import { createSvgElement } from '../shared/dom';
 import { TV_TEXTS } from './texts';
 import { bordersCrossed, easeOutCubic, segmentAngle, targetRotation } from './wheel-math';
@@ -31,19 +32,25 @@ const VALUE_COLORS = [
   '#1aa3a3',
 ];
 const DIGIT_STEP = 12.5;
+const JACKPOT_FILL = '#ffd23f';
 const FIRST_DIGIT_RADIUS = 82;
 
 /** What one segment of a wheel looks like. */
 export interface WheelFace {
   fill: string;
   ink: string;
-  label: { kind: 'digits'; text: string } | { kind: 'word'; text: string } | { kind: 'envelope' };
+  label:
+    | { kind: 'digits'; text: string }
+    | { kind: 'word'; text: string; size?: number }
+    | { kind: 'envelope' };
+  /** Narrow slices on both edges of the segment (the jackpot's bankrupts), as a share of it. */
+  sides?: { fill: string; ink: string; text: string; share: number };
 }
 
 export interface Wheel {
   element: SVGSVGElement;
-  /** Resolves when the wheel has stopped on the segment. */
-  spin(segmentIndex: number): Promise<void>;
+  /** Resolves when the wheel has stopped on the segment, in the given part of it. */
+  spin(segmentIndex: number, part?: SlotPart): Promise<void>;
 }
 
 /** Faces of the main wheel. */
@@ -67,6 +74,13 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
           fill: VALUE_COLORS[index % VALUE_COLORS.length] ?? '#2e86de',
           ink: '#ffffff',
           label: { kind: 'digits', text: String(segment.amount) },
+        };
+      case 'jackpot':
+        return {
+          fill: JACKPOT_FILL,
+          ink: '#ffffff',
+          label: { kind: 'word', text: String(segment.amount), size: 11 },
+          sides: { fill: '#15151a', ink: '#ffffff', text: TV_TEXTS.wheel.bankrupt, share: 0.25 },
         };
     }
   });
@@ -102,12 +116,12 @@ function stackedLabel(text: string, color: string): SVGTextElement[] {
 }
 
 /** Long words do not fit stacked: they run along the radius instead. */
-function radialLabel(text: string, color: string): SVGTextElement {
+function radialLabel(text: string, color: string, size?: number): SVGTextElement {
   const label = createSvgElement('text', {
     transform: 'translate(0 -56) rotate(-90)',
     fill: color,
     class: 'wheel-word',
-    'font-size': text.length > 5 ? 9 : 12,
+    'font-size': size ?? (text.length > 5 ? 9 : 12),
     'text-anchor': 'middle',
     'dominant-baseline': 'central',
   });
@@ -127,29 +141,58 @@ function faceLabel(face: WheelFace): SVGElement[] {
     case 'digits':
       return stackedLabel(face.label.text, face.ink);
     case 'word':
-      return [radialLabel(face.label.text, face.ink)];
+      return [radialLabel(face.label.text, face.ink, face.label.size)];
     case 'envelope':
       return [envelopeIcon()];
   }
 }
 
-function drawSegment(face: WheelFace, index: number, angle: number, trim: string): SVGGElement {
-  const start = (index - 0.5) * angle;
-  const end = (index + 0.5) * angle;
-  const wedge = createSvgElement('path', {
+function wedge(start: number, end: number, fill: string): SVGPathElement {
+  return createSvgElement('path', {
     d: `M 0 0 L ${pointAt(start, RADIUS)} A ${String(RADIUS)} ${String(RADIUS)} 0 0 1 ${pointAt(end, RADIUS)} Z`,
-    fill: face.fill,
+    fill,
   });
-  const peg = createSvgElement('circle', {
-    cx: PEG_RADIUS * Math.sin((start * Math.PI) / 180),
-    cy: -PEG_RADIUS * Math.cos((start * Math.PI) / 180),
+}
+
+function peg(angle: number, trim: string): SVGCircleElement {
+  return createSvgElement('circle', {
+    cx: PEG_RADIUS * Math.sin((angle * Math.PI) / 180),
+    cy: -PEG_RADIUS * Math.cos((angle * Math.PI) / 180),
     r: 2.2,
     fill: trim,
   });
+}
+
+const SIDE_LABEL_SIZE = 3.4;
+
+function sideSlices(face: WheelFace, start: number, end: number, trim: string): SVGElement[] {
+  const { sides } = face;
+  if (sides === undefined) return [];
+  const width = (end - start) * sides.share;
+  const label = (angle: number): SVGGElement => {
+    const text = radialLabel(sides.text, sides.ink, SIDE_LABEL_SIZE);
+    // The usual outline would blur such small letters.
+    text.style.strokeWidth = '0.3px';
+    return createSvgElement('g', { transform: `rotate(${String(angle)})` }, [text]);
+  };
+  return [
+    wedge(start, start + width, sides.fill),
+    wedge(end - width, end, sides.fill),
+    label(start + width / 2),
+    label(end - width / 2),
+    peg(start + width, trim),
+    peg(end - width, trim),
+  ];
+}
+
+function drawSegment(face: WheelFace, index: number, angle: number, trim: string): SVGGElement {
+  const start = (index - 0.5) * angle;
+  const end = (index + 0.5) * angle;
   return createSvgElement('g', {}, [
-    wedge,
+    wedge(start, end, face.fill),
+    ...sideSlices(face, start, end, trim),
     createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, faceLabel(face)),
-    peg,
+    peg(start, trim),
   ]);
 }
 
@@ -218,6 +261,20 @@ function drawPointer(trim: string): SVGGElement {
   ]);
 }
 
+/**
+ * Where the pointer stops inside the segment, in [-0.5, 0.5]. Kept away from
+ * borders, so the result is never ambiguous.
+ */
+function stopOffset(face: WheelFace | undefined, part: SlotPart): number {
+  const jitter = Math.random() * 2 - 1;
+  const side = face?.sides?.share;
+  if (side === undefined) return jitter * MAX_OFFSET;
+  const middle = 0.5 - side;
+  if (part === 'middle') return jitter * middle * 0.7;
+  const centre = 0.5 - side / 2;
+  return (part === 'left' ? -centre : centre) + jitter * (side / 2) * 0.6;
+}
+
 function restartAnimation(element: Element, className: string): void {
   element.classList.remove(className);
   element.getBoundingClientRect(); // Forces a layout, so that the browser sees the class as new.
@@ -264,13 +321,13 @@ export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wh
     onTick();
   }
 
-  function spin(segmentIndex: number): Promise<void> {
+  function spin(segmentIndex: number, part: SlotPart = 'middle'): Promise<void> {
     const from = rotation;
     const to = targetRotation(from, {
       segmentIndex,
       segmentCount: faces.length,
       fullTurns: FULL_TURNS,
-      offset: (Math.random() * 2 - 1) * MAX_OFFSET,
+      offset: stopOffset(faces[segmentIndex], part),
     });
     element.classList.add('spinning');
     return new Promise((resolve) => {

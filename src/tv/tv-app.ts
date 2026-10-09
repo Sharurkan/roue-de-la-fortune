@@ -68,7 +68,8 @@ function initialRoomCode(): string {
 /** A wheel that was spinning when the page was reloaded: spin it again to the same result. */
 function interruptedSpin(state: GameState): GameEvent[] {
   if (state.phase === 'playing' && state.step.kind === 'spinning') {
-    return [{ type: 'wheelSpun', segmentIndex: state.step.segmentIndex }];
+    const { segmentIndex, part } = state.step;
+    return [{ type: 'wheelSpun', segmentIndex, part }];
   }
   if (state.phase === 'final' && state.step.kind === 'prizeSpinning') {
     const { prizeIndex } = state.final;
@@ -182,7 +183,7 @@ export function startTv(root: HTMLElement): void {
   async function animate(event: GameEvent): Promise<void> {
     switch (event.type) {
       case 'wheelSpun':
-        await game.wheel.spin(event.segmentIndex);
+        await game.wheel().spin(event.segmentIndex, event.part);
         dispatch({ type: 'spinEnded' });
         return;
       case 'letterFound':

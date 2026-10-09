@@ -57,7 +57,7 @@ describe('toPublicView', () => {
     const state = play(phrase, [...START, { type: 'spin' }, { type: 'spinEnded' }]);
     expect(toPublicView(state, [])).toMatchObject({
       step: 'guessingConsonant',
-      consonantValue: 300,
+      consonantValue: 150,
       canSpin: false,
     });
   });
@@ -86,7 +86,7 @@ describe('toPublicView', () => {
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [...START, { type: 'spin' }]);
-    const view = toPublicView(state, [{ type: 'wheelSpun', segmentIndex: 0 }]);
+    const view = toPublicView(state, [{ type: 'wheelSpun', segmentIndex: 0, part: 'middle' }]);
     expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
   });
 

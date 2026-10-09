@@ -1,35 +1,130 @@
 export type WheelSegment =
-  { kind: 'value'; amount: number } | { kind: 'bankrupt' } | { kind: 'pass' };
+  | { kind: 'value'; amount: number }
+  /**
+   * Shared slot: 25 % bankrupt on each edge, the amount in the middle half.
+   * The amount is won once, whatever the number of letters found.
+   */
+  | { kind: 'jackpot'; amount: number }
+  | { kind: 'bankrupt' }
+  | { kind: 'pass' };
 
-const value = (amount: number): WheelSegment => ({ kind: 'value', amount });
+/** Share of the jackpot slot taken by the bankrupt on each of its edges. */
+export const JACKPOT_SIDE_SHARE = 0.25;
+
+const v = (amount: number): WheelSegment => ({ kind: 'value', amount });
 const BANKRUPT: WheelSegment = { kind: 'bankrupt' };
 const PASS: WheelSegment = { kind: 'pass' };
+const JACKPOT: WheelSegment = { kind: 'jackpot', amount: 5000 };
 
-export const WHEEL_SEGMENTS: readonly WheelSegment[] = [
-  value(300),
-  value(500),
-  BANKRUPT,
-  value(200),
-  value(800),
-  value(400),
-  value(600),
-  PASS,
-  value(250),
-  value(700),
-  value(350),
-  value(900),
-  BANKRUPT,
-  value(150),
-  value(450),
-  value(550),
-  value(200),
-  value(1000),
-  value(300),
-  PASS,
-  value(650),
-  value(400),
-  value(500),
-  value(750),
+/**
+ * One wheel per regular round, like on TV, clockwise from 12 o'clock.
+ * Round 1 has small amounts and no traps; round 4 has the 5 000 € jackpot, shared with two bankrupts.
+ */
+export const WHEELS: readonly (readonly WheelSegment[])[] = [
+  [
+    v(150),
+    v(300),
+    v(100),
+    v(250),
+    v(750),
+    v(1500),
+    v(250),
+    v(150),
+    v(450),
+    v(400),
+    v(1000),
+    v(900),
+    v(150),
+    v(200),
+    v(150),
+    v(300),
+    v(300),
+    v(250),
+    v(100),
+    v(500),
+    v(750),
+    v(250),
+    v(500),
+    v(200),
+  ],
+  [
+    v(150),
+    v(300),
+    v(100),
+    v(250),
+    v(750),
+    v(450),
+    v(250),
+    v(150),
+    v(100),
+    v(450),
+    v(1000),
+    v(900),
+    v(150),
+    v(200),
+    v(150),
+    v(300),
+    v(300),
+    v(250),
+    v(100),
+    v(500),
+    v(750),
+    v(200),
+    v(500),
+    PASS,
+  ],
+  [
+    v(150),
+    v(300),
+    v(100),
+    v(250),
+    BANKRUPT,
+    v(1500),
+    v(250),
+    v(150),
+    v(100),
+    v(450),
+    v(1000),
+    v(900),
+    v(150),
+    v(200),
+    v(150),
+    v(300),
+    v(450),
+    v(250),
+    v(100),
+    v(500),
+    v(750),
+    v(200),
+    v(500),
+    PASS,
+  ],
+  [
+    JACKPOT,
+    v(300),
+    v(100),
+    v(250),
+    v(600),
+    v(1500),
+    v(250),
+    v(150),
+    PASS,
+    v(450),
+    v(1000),
+    v(900),
+    v(150),
+    v(200),
+    v(150),
+    v(300),
+    v(450),
+    v(250),
+    v(100),
+    v(500),
+    v(750),
+    v(200),
+    v(500),
+    v(700),
+  ],
 ];
 
 export const VOWEL_COST = 250;

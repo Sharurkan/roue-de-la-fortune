@@ -32,9 +32,13 @@ Note : la mise en relation passe par le serveur public gratuit de PeerJS. Ensuit
 - 2 à 4 équipes, noms saisis sur le téléphone (noms par défaut : « Équipe 1 », …).
 - Chaque équipe a un score de manche et un total.
 
-Roue (24 cases, dans `game/config.ts`)
+Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 
-- `300, 500, BANQUEROUTE, 200, 800, 400, 600, PASSE, 250, 700, 350, 900, BANQUEROUTE, 150, 450, 550, 200, 1000, 300, PASSE, 650, 400, 500, 750`
+- Manche 1 : petites sommes, aucun piège.
+- Manche 2 : une case PASSE.
+- Manche 3 : une BANQUEROUTE et une PASSE.
+- Manche 4 : une case partagée à midi (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE) et une PASSE à 16 h.
+- Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
 
 Tour de jeu, l'équipe active peut :
 
@@ -45,7 +49,7 @@ Tour de jeu, l'équipe active peut :
 Consonne
 
 - Consonnes : B C D F G H J K L M N P Q R S T V W X Z.
-- Présente : gain = valeur de la case × nombre d'occurrences. L'équipe rejoue.
+- Présente : gain = valeur de la case × nombre d'occurrences (sauf case 5 000 €). L'équipe rejoue.
 - Absente : la main passe à l'équipe suivante.
 
 Voyelle
@@ -138,7 +142,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 4.
+- Version actuelle du protocole : 5.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

@@ -5,7 +5,7 @@ import type { GameState } from '../game/state';
 
 const GAME_KEY = 'rdlf.game';
 /** Bump when the saved shape changes: older saves are then dropped instead of misread. */
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 const count = z.int().check(z.minimum(0));
 
@@ -26,8 +26,12 @@ const teamsSchema = z
 
 const stepSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('choosing') }),
-  z.object({ kind: z.literal('spinning'), segmentIndex: count }),
-  z.object({ kind: z.literal('guessingConsonant'), amount: count }),
+  z.object({
+    kind: z.literal('spinning'),
+    segmentIndex: count,
+    part: z.enum(['left', 'middle', 'right']),
+  }),
+  z.object({ kind: z.literal('guessingConsonant'), amount: count, perLetter: z.boolean() }),
   z.object({ kind: z.literal('guessingVowel') }),
   z.object({ kind: z.literal('solving') }),
 ]);

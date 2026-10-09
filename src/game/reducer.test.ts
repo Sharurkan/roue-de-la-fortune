@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WHEEL_SEGMENTS } from './config';
+import { WHEELS } from './config';
 import type { Phrase } from './phrases';
 import { reduce, type GameDeps, type ReduceResult } from './reducer';
 import type { GameAction, GameState, PlayingState } from './state';
@@ -9,7 +9,15 @@ const PHRASE: Phrase = { theme: 'Expression', text: 'Casser les pieds' };
 
 const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
 
-const SEGMENT = { value300: 0, value500: 1, bankrupt: 2, pass: 7, value1000: 17 } as const;
+/** Round 1 wheel for values; traps are on the round 3 wheel, the jackpot on round 4. */
+const SEGMENT = {
+  value300: 1,
+  value500: 22,
+  value1000: 10,
+  bankrupt: 4,
+  pass: 23,
+  jackpot: 0,
+} as const;
 
 function deps(randoms: number[] = [], phrases: readonly Phrase[] = [PHRASE]): GameDeps {
   let call = 0;
@@ -22,7 +30,7 @@ function deps(randoms: number[] = [], phrases: readonly Phrase[] = [PHRASE]): Ga
 }
 
 function randomFor(segmentIndex: number): number {
-  return (segmentIndex + 0.5) / WHEEL_SEGMENTS.length;
+  return (segmentIndex + 0.5) / (WHEELS[0]?.length ?? 1);
 }
 
 function apply(state: GameState, actions: GameAction[], gameDeps = deps()): ReduceResult {
@@ -51,8 +59,13 @@ function newGame(teamCount = 3, phrases: readonly Phrase[] = [PHRASE]): PlayingS
   return winTossUp(tossUp.state, 0, phrases);
 }
 
-function spinTo(state: GameState, segmentIndex: number): ReduceResult {
-  return apply(state, [{ type: 'spin' }, { type: 'spinEnded' }], deps([randomFor(segmentIndex)]));
+/** The second random number picks the part of the jackpot slot: 0.5 is its middle. */
+function spinTo(state: GameState, segmentIndex: number, partRandom = 0.5): ReduceResult {
+  return apply(
+    state,
+    [{ type: 'spin' }, { type: 'spinEnded' }],
+    deps([randomFor(segmentIndex), partRandom]),
+  );
 }
 
 function guessConsonant(
@@ -65,6 +78,10 @@ function guessConsonant(
 
 function guessVowel(state: GameState, letter: string): ReduceResult {
   return apply(state, [{ type: 'buyVowel' }, { type: 'guessVowel', letter }]);
+}
+
+function inRound(state: PlayingState, roundNumber: number): PlayingState {
+  return { ...state, roundNumber };
 }
 
 function withRoundScore(state: PlayingState, team: number, roundScore: number): PlayingState {
@@ -115,8 +132,12 @@ describe('game setup', () => {
 describe('wheel', () => {
   it('picks the segment with the injected randomness', () => {
     const result = reduce(newGame(), { type: 'spin' }, deps([randomFor(5)]));
-    expect(playing(result.state).step).toEqual({ kind: 'spinning', segmentIndex: 5 });
-    expect(result.events).toEqual([{ type: 'wheelSpun', segmentIndex: 5 }]);
+    expect(playing(result.state).step).toEqual({
+      kind: 'spinning',
+      segmentIndex: 5,
+      part: 'middle',
+    });
+    expect(result.events).toEqual([{ type: 'wheelSpun', segmentIndex: 5, part: 'middle' }]);
   });
 
   it('rejects every turn action while the wheel is spinning', () => {
@@ -133,7 +154,11 @@ describe('wheel', () => {
 
   it('asks for a consonant after landing on a value', () => {
     const { state } = spinTo(newGame(), SEGMENT.value500);
-    expect(playing(state).step).toEqual({ kind: 'guessingConsonant', amount: 500 });
+    expect(playing(state).step).toEqual({
+      kind: 'guessingConsonant',
+      amount: 500,
+      perLetter: true,
+    });
   });
 
   it('after spinning, the team can neither buy a vowel nor solve', () => {
@@ -143,7 +168,7 @@ describe('wheel', () => {
   });
 
   it('bankrupt resets the round score to 0 and passes the turn', () => {
-    const game = withRoundScore(newGame(), 0, 800);
+    const game = withRoundScore(inRound(newGame(), 3), 0, 800);
     const result = spinTo(game, SEGMENT.bankrupt);
     const state = playing(result.state);
     expect(state.teams[0]?.roundScore).toBe(0);
@@ -155,13 +180,13 @@ describe('wheel', () => {
   });
 
   it('bankrupt keeps the total score', () => {
-    const game = newGame();
+    const game = inRound(newGame(), 3);
     const withTotal = { ...game, teams: game.teams.map((t) => ({ ...t, totalScore: 900 })) };
     expect(playing(spinTo(withTotal, SEGMENT.bankrupt).state).teams[0]?.totalScore).toBe(900);
   });
 
   it('pass passes the turn and keeps the score', () => {
-    const result = spinTo(withRoundScore(newGame(), 0, 800), SEGMENT.pass);
+    const result = spinTo(withRoundScore(inRound(newGame(), 3), 0, 800), SEGMENT.pass);
     const state = playing(result.state);
     expect(state.teams[0]?.roundScore).toBe(800);
     expect(state.round.activeTeam).toBe(1);
@@ -169,8 +194,57 @@ describe('wheel', () => {
   });
 
   it('the turn goes back to the first team after the last one', () => {
-    const game = { ...newGame(2), round: { ...newGame(2).round, activeTeam: 1 } };
+    const game = inRound({ ...newGame(2), round: { ...newGame(2).round, activeTeam: 1 } }, 3);
     expect(playing(spinTo(game, SEGMENT.pass).state).round.activeTeam).toBe(0);
+  });
+});
+
+describe('wheels', () => {
+  it('has one wheel of 24 segments per regular round', () => {
+    expect(WHEELS).toHaveLength(4);
+    for (const wheel of WHEELS) expect(wheel).toHaveLength(24);
+  });
+
+  it('round 1 has no traps', () => {
+    expect(WHEELS[0]?.every((segment) => segment.kind === 'value')).toBe(true);
+  });
+
+  it('round 4 has the 5 000 € jackpot at noon, and no other bankrupt', () => {
+    const wheel = WHEELS[3] ?? [];
+    expect(wheel[0]).toEqual({ kind: 'jackpot', amount: 5000 });
+    expect(wheel.some((segment) => segment.kind === 'bankrupt')).toBe(false);
+  });
+
+  it('spins the wheel of the current round', () => {
+    const { state } = spinTo(inRound(newGame(), 4), SEGMENT.jackpot);
+    expect(playing(state).step).toEqual({
+      kind: 'guessingConsonant',
+      amount: 5000,
+      perLetter: false,
+    });
+  });
+
+  it('the jackpot is won once, whatever the number of letters', () => {
+    const result = guessConsonant(inRound(newGame(), 4), 'S', SEGMENT.jackpot);
+    expect(playing(result.state).teams[0]?.roundScore).toBe(5000);
+    expect(result.events).toEqual([{ type: 'letterFound', letter: 'S', count: 4, gain: 5000 }]);
+  });
+
+  it.each([
+    [0.1, 'left'],
+    [0.9, 'right'],
+  ])('the edges of the jackpot slot are bankrupts (random %d: %s)', (partRandom, part) => {
+    const game = withRoundScore(inRound(newGame(), 4), 0, 800);
+    const spinning = reduce(game, { type: 'spin' }, deps([randomFor(SEGMENT.jackpot), partRandom]));
+    expect(spinning.events).toEqual([{ type: 'wheelSpun', segmentIndex: SEGMENT.jackpot, part }]);
+    const result = reduce(spinning.state, { type: 'spinEnded' }, deps());
+    expect(playing(result.state).teams[0]?.roundScore).toBe(0);
+    expect(result.events).toContainEqual({ type: 'bankrupt', team: 0 });
+  });
+
+  it('the jackpot gives nothing for an absent letter', () => {
+    const result = guessConsonant(inRound(newGame(), 4), 'T', SEGMENT.jackpot);
+    expect(playing(result.state).teams[0]?.roundScore).toBe(0);
   });
 });
 

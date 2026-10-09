@@ -13,10 +13,14 @@ export interface Round {
   activeTeam: number;
 }
 
+/** Where the pointer stops inside the slot. Only the jackpot slot has distinct parts. */
+export type SlotPart = 'left' | 'middle' | 'right';
+
 export type TurnStep =
   | { kind: 'choosing' }
-  | { kind: 'spinning'; segmentIndex: number }
-  | { kind: 'guessingConsonant'; amount: number }
+  | { kind: 'spinning'; segmentIndex: number; part: SlotPart }
+  /** perLetter is false for the jackpot: its amount is won once, not per letter. */
+  | { kind: 'guessingConsonant'; amount: number; perLetter: boolean }
   | { kind: 'guessingVowel' }
   | { kind: 'solving' };
 
