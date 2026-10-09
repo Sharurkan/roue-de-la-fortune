@@ -3,7 +3,7 @@ import { PHRASES } from '../game/phrases';
 import { reduce, type GameDeps } from '../game/reducer';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
 import { toPublicView } from '../protocol/view';
-import { describeScreen, letterKeys, teamNamesFor } from './controls';
+import { describeScreen, forcedSpinOptions, letterKeys, teamNamesFor } from './controls';
 
 const DEPS: GameDeps = {
   random: () => 0,
@@ -164,5 +164,23 @@ describe('teamNamesFor', () => {
 
   it('ignores names typed for teams that were removed', () => {
     expect(teamNamesFor(['A', 'B', 'C'], 2)).toEqual(['A', 'B']);
+  });
+});
+
+describe('forcedSpinOptions', () => {
+  const label = (segment: { kind: string }, part: string) => `${segment.kind}/${part}`;
+
+  it('lists every segment of the round wheel', () => {
+    expect(forcedSpinOptions(1, label)).toHaveLength(24);
+    expect(forcedSpinOptions(3, label)[0]).toEqual({
+      segmentIndex: 0,
+      part: 'middle',
+      label: '1 · pocket/middle',
+    });
+  });
+
+  it('offers both the middle and the edge of the jackpot', () => {
+    const jackpot = forcedSpinOptions(4, label).filter((option) => option.segmentIndex === 0);
+    expect(jackpot.map((option) => option.part)).toEqual(['middle', 'left']);
   });
 });

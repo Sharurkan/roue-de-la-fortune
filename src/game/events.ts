@@ -14,6 +14,7 @@ export type RejectionReason =
   | 'invalidTeam'
   | 'invalidRound'
   | 'invalidPocket'
+  | 'invalidSegment'
   | 'teamEliminated';
 
 export type GameEvent =

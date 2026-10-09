@@ -133,7 +133,7 @@ Phrases
 
 - Affiche : manche, équipe active, son score, message en cours.
 - Configuration : nombre d'équipes, noms, bouton « Commencer ».
-- Mode test (`&test` dans l'adresse de la manette) : choix de la manche de départ (1 à 4, ou la finale).
+- Mode test (`&test` dans l'adresse de la manette) : choix de la manche de départ (1 à 4, ou la finale), et case forcée pour le prochain tour de roue (dont le milieu ou le bord de la case 5 000 €).
 - Énigme rapide : un gros bouton par équipe (équipes éliminées grisées), puis saisie de la réponse.
 - Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
 - Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
@@ -145,7 +145,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 7.
+- Version actuelle du protocole : 8.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

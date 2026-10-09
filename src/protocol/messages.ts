@@ -2,8 +2,8 @@ import * as z from 'zod/mini';
 import { phoneActionSchema, type PhoneAction } from './actions';
 import { publicViewSchema, type PublicView } from './view';
 
-/** Bumped for the mystery panel: phones and TVs must run the same version. */
-export const PROTOCOL_VERSION = 7;
+/** Bumped for the forced spin of the test mode: phones and TVs must run the same version. */
+export const PROTOCOL_VERSION = 8;
 
 const version = z.literal(PROTOCOL_VERSION);
 const heartbeatSchema = z.object({ v: version, type: z.literal('heartbeat') });

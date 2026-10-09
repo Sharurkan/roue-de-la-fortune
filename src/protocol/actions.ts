@@ -8,6 +8,9 @@ import {
 } from '../game/config';
 import type { GameAction } from '../game/state';
 
+/** Wheels have 24 segments; a little room is kept for other wheels. */
+const MAX_SEGMENTS = 48;
+
 const letterSchema = z.string().check(z.length(1));
 
 /** Actions the phone may send. Timing (wheel stop, toss-up letters) only comes from the TV. */
@@ -25,7 +28,11 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
     type: z.literal('buzz'),
     team: z.int().check(z.minimum(0), z.maximum(MAX_TEAMS - 1)),
   }),
-  z.object({ type: z.literal('spin') }),
+  z.object({
+    type: z.literal('spin'),
+    segmentIndex: z.optional(z.int().check(z.minimum(0), z.maximum(MAX_SEGMENTS))),
+    part: z.optional(z.enum(['left', 'middle', 'right'])),
+  }),
   z.object({ type: z.literal('guessConsonant'), letter: letterSchema }),
   z.object({ type: z.literal('choosePocket'), color: z.enum(['red', 'blue']) }),
   z.object({ type: z.literal('buyVowel') }),

@@ -110,6 +110,7 @@ function showController(root: HTMLElement, code: string): void {
     teamCount: 2,
     names: [],
     firstRound: 1,
+    forcedSpin: -1,
     testMode: isTestMode(window.location.search),
   };
 

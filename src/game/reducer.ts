@@ -32,7 +32,7 @@ import {
   hasHiddenConsonants,
   hasHiddenVowels,
 } from './selectors';
-import type { GameAction, GameState, PlayingState, Round } from './state';
+import type { GameAction, GameState, PlayingState, Round, SlotPart } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
 import { revealMystery } from './mystery';
 import { offerPocket, openPocket } from './pocket';
@@ -51,7 +51,7 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
     case 'buzz':
       return state.phase === 'tossUp' ? buzz(state, action.team) : reject(state, 'wrongPhase');
     case 'spin':
-      return spin(state, deps);
+      return spin(state, deps, action);
     case 'spinEnded':
       return spinEnded(state, deps);
     case 'choosePocket':
@@ -111,13 +111,24 @@ function isChoosing(state: GameState): state is PlayingState & { step: { kind: '
   return state.phase === 'playing' && state.step.kind === 'choosing';
 }
 
-function spin(state: GameState, deps: GameDeps): ReduceResult {
+function spin(
+  state: GameState,
+  deps: GameDeps,
+  forced: { segmentIndex?: number | undefined; part?: SlotPart | undefined },
+): ReduceResult {
   if (state.phase === 'final') return spinPrizeWheel(state, deps);
   if (!isChoosing(state)) return reject(state, 'wrongPhase');
   if (!hasHiddenConsonants(state.round)) return reject(state, 'noConsonantsLeft');
   const wheel = wheelForRound(state.roundNumber);
-  const segmentIndex = pickIndex(deps.random, wheel.length);
-  const part = pickSlotPart(wheel[segmentIndex], deps.random());
+  const forcedIndex = forced.segmentIndex;
+  if (
+    forcedIndex !== undefined &&
+    (!Number.isInteger(forcedIndex) || wheel[forcedIndex] === undefined)
+  ) {
+    return reject(state, 'invalidSegment');
+  }
+  const segmentIndex = forcedIndex ?? pickIndex(deps.random, wheel.length);
+  const part = forced.part ?? pickSlotPart(wheel[segmentIndex], deps.random());
   return {
     state: { ...state, step: { kind: 'spinning', segmentIndex, part } },
     events: [{ type: 'wheelSpun', segmentIndex, part }],

@@ -10,7 +10,7 @@ import {
 import type { PhoneAction } from '../protocol/actions';
 import type { PublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
-import { letterKeys, teamNamesFor, type PhoneScreen } from './controls';
+import { forcedSpinOptions, letterKeys, teamNamesFor, type PhoneScreen } from './controls';
 import { PHONE_TEXTS, prizeLabel } from './texts';
 
 export type ConfirmableAction = 'abandonGame';
@@ -20,6 +20,8 @@ export interface SetupDraft {
   names: string[];
   /** Only offered in test mode. */
   firstRound: number;
+  /** Test mode: index in the forced spin options, or -1 for a random spin. */
+  forcedSpin: number;
   testMode: boolean;
 }
 
@@ -115,6 +117,34 @@ function setupScreen(context: ScreenContext): HTMLElement {
   ]);
 }
 
+function testSpinOptions(context: ScreenContext): ReturnType<typeof forcedSpinOptions> {
+  return forcedSpinOptions(context.view.roundNumber, texts.segmentLabel);
+}
+
+function spinAction(context: ScreenContext): PhoneAction {
+  const forced = context.setup.testMode
+    ? testSpinOptions(context)[context.setup.forcedSpin]
+    : undefined;
+  return forced === undefined
+    ? { type: 'spin' }
+    : { type: 'spin', segmentIndex: forced.segmentIndex, part: forced.part };
+}
+
+/** Test mode: pick the segment the wheel will stop on. */
+function forcedSpinChoice(context: ScreenContext): HTMLElement[] {
+  const { setup } = context;
+  if (!setup.testMode) return [];
+  const select = createElement('select', { className: 'text-input' }, [
+    createElement('option', { text: texts.randomSpin }),
+    ...testSpinOptions(context).map((option) => createElement('option', { text: option.label })),
+  ]);
+  select.selectedIndex = setup.forcedSpin + 1;
+  select.addEventListener('change', () => {
+    setup.forcedSpin = select.selectedIndex - 1;
+  });
+  return [createElement('label', { className: 'label', text: texts.forcedSpin }, [select])];
+}
+
 function turnButtons(
   context: ScreenContext,
   canSpin: boolean,
@@ -125,7 +155,7 @@ function turnButtons(
     button(
       texts.spin,
       () => {
-        send({ type: 'spin' });
+        send(spinAction(context));
       },
       { disabled: !enabled || !canSpin },
     ),
@@ -355,6 +385,7 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
       );
     case 'turn':
       return createElement('div', { className: 'screen' }, [
+        ...forcedSpinChoice(context),
         ...turnButtons(context, screen.canSpin, screen.canBuyVowel),
         ...(screen.noMoreConsonants ? [note(texts.noMoreConsonants)] : []),
         ...(screen.noMoreVowels ? [note(texts.noMoreVowels)] : []),

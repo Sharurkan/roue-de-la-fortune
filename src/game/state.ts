@@ -106,7 +106,8 @@ export type GameAction =
   | { type: 'startGame'; teamNames: string[]; firstRound?: number | undefined }
   | { type: 'revealTossUpLetter' }
   | { type: 'buzz'; team: number }
-  | { type: 'spin' }
+  /** segmentIndex and part force the result, for testing. */
+  | { type: 'spin'; segmentIndex?: number | undefined; part?: SlotPart | undefined }
   | { type: 'spinEnded' }
   | { type: 'guessConsonant'; letter: string }
   | { type: 'choosePocket'; color: PocketColor }

@@ -92,6 +92,7 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
       'invalidTeam',
       'invalidRound',
       'invalidPocket',
+      'invalidSegment',
       'teamEliminated',
     ]),
   }),

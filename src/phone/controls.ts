@@ -1,4 +1,6 @@
-import { ROUND_COUNT } from '../game/config';
+import { ROUND_COUNT, type WheelSegment } from '../game/config';
+import type { SlotPart } from '../game/state';
+import { wheelForRound } from '../game/wheel';
 import type { PublicView } from '../protocol/view';
 
 /** What the phone shows, derived only from the public view sent by the TV. */
@@ -108,4 +110,26 @@ export function teamNamesFor(
   teamCount: number,
 ): string[] {
   return Array.from({ length: teamCount }, (_, index) => typedNames[index] ?? '');
+}
+
+/** Test mode: a wheel result the phone can force. */
+export interface ForcedSpin {
+  segmentIndex: number;
+  part: SlotPart;
+  label: string;
+}
+
+/** Every result of the round's wheel, the jackpot giving its middle and its edge. */
+export function forcedSpinOptions(
+  roundNumber: number,
+  label: (segment: WheelSegment, part: SlotPart) => string,
+): ForcedSpin[] {
+  return wheelForRound(roundNumber).flatMap((segment, segmentIndex) => {
+    const parts: SlotPart[] = segment.kind === 'jackpot' ? ['middle', 'left'] : ['middle'];
+    return parts.map((part) => ({
+      segmentIndex,
+      part,
+      label: `${String(segmentIndex + 1)} · ${label(segment, part)}`,
+    }));
+  });
 }

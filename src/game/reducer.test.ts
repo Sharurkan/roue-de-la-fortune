@@ -165,6 +165,17 @@ describe('wheel', () => {
     expect(result.events).toEqual([{ type: 'wheelSpun', segmentIndex: 5, part: 'middle' }]);
   });
 
+  it('can be forced on a segment and a part, for testing', () => {
+    const action: GameAction = { type: 'spin', segmentIndex: 7, part: 'left' };
+    const result = reduce(newGame(), action, deps());
+    expect(playing(result.state).step).toEqual({ kind: 'spinning', segmentIndex: 7, part: 'left' });
+  });
+
+  it.each([24, -1, 2.5])('refuses to force the segment %d', (segmentIndex) => {
+    const result = reduce(newGame(), { type: 'spin', segmentIndex }, deps());
+    expect(result.events).toEqual(rejection('invalidSegment'));
+  });
+
   it('rejects every turn action while the wheel is spinning', () => {
     const spinning = reduce(newGame(), { type: 'spin' }, deps()).state;
     for (const action of [

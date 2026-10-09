@@ -1,4 +1,5 @@
-import type { MysteryEffect, Prize } from '../game/config';
+import type { MysteryEffect, Prize, WheelSegment } from '../game/config';
+import type { SlotPart } from '../game/state';
 import type { GameEvent, RejectionReason } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -21,6 +22,24 @@ export const PHONE_TEXTS = {
   teamPlaceholder: (index: number) => `Équipe ${String(index + 1)}`,
   start: 'Commencer',
   firstRound: 'Mode test : manche de départ',
+  forcedSpin: 'Mode test : case forcée',
+  randomSpin: 'Au hasard',
+  segmentLabel: (segment: WheelSegment, part: SlotPart): string => {
+    switch (segment.kind) {
+      case 'value':
+        return euros(segment.amount);
+      case 'jackpot':
+        return part === 'middle' ? euros(segment.amount) : 'Banqueroute (bord du 5 000)';
+      case 'bankrupt':
+        return 'Banqueroute';
+      case 'pass':
+        return 'Passe';
+      case 'pocket':
+        return 'La Bonne Poche';
+      case 'mystery':
+        return 'Mystère';
+    }
+  },
   firstRoundChoice: (round: number, isFinal: boolean) => (isFinal ? 'Finale' : String(round)),
   round: (roundNumber: number) => `Manche ${String(roundNumber)}`,
   tossUp: 'Énigme rapide',
@@ -107,6 +126,7 @@ const REJECTIONS: Record<RejectionReason, string> = {
   invalidTeam: 'Équipe inconnue',
   invalidRound: 'Manche inconnue',
   invalidPocket: 'Enveloppe inconnue',
+  invalidSegment: 'Case inconnue',
   teamEliminated: 'Cette équipe a déjà répondu',
 };
 
