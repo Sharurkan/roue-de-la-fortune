@@ -20,6 +20,8 @@ export const PHONE_TEXTS = {
   teamCount: "Nombre d'équipes",
   teamPlaceholder: (index: number) => `Équipe ${String(index + 1)}`,
   start: 'Commencer',
+  firstRound: 'Mode test : manche de départ',
+  firstRoundChoice: (round: number, isFinal: boolean) => (isFinal ? 'Finale' : String(round)),
   round: (roundNumber: number) => `Manche ${String(roundNumber)}`,
   tossUp: 'Énigme rapide',
   whoBuzzed: 'Qui a buzzé en premier ?',
@@ -34,6 +36,9 @@ export const PHONE_TEXTS = {
   spinning: 'La roue tourne…',
   chooseConsonant: (value: number) => `Pour ${euros(value)} : choisis une consonne`,
   chooseVowel: 'Choisis une voyelle',
+  choosePocket: 'La Bonne Poche : quelle enveloppe ?',
+  redPocket: 'Enveloppe rouge',
+  bluePocket: 'Enveloppe bleue',
   solutionLabel: 'Ta réponse',
   validate: 'Valider',
   cancel: 'Annuler',
@@ -92,6 +97,8 @@ const REJECTIONS: Record<RejectionReason, string> = {
   invalidAnswer: 'Réponse vide ou trop longue',
   noPicksLeft: 'Tu as déjà choisi toutes les lettres de ce type',
   invalidTeam: 'Équipe inconnue',
+  invalidRound: 'Manche inconnue',
+  invalidPocket: 'Enveloppe inconnue',
   teamEliminated: 'Cette équipe a déjà répondu',
 };
 
@@ -109,6 +116,12 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
       return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'bankrupt':
       return `Banqueroute pour ${teamName(event.team)} !`;
+    case 'pocketOffered':
+      return 'La Bonne Poche !';
+    case 'pocketOpened':
+      return event.chosen === event.winning
+        ? `Bonne poche : +${euros(event.amount)}`
+        : 'Enveloppe vide';
     case 'landedOnPass':
       return `Passe : ${teamName(event.team)} passe son tour`;
     case 'letterFound':

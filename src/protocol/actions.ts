@@ -1,5 +1,11 @@
 import * as z from 'zod/mini';
-import { MAX_ANSWER_LENGTH, MAX_TEAM_NAME_LENGTH, MAX_TEAMS, MIN_TEAMS } from '../game/config';
+import {
+  MAX_ANSWER_LENGTH,
+  MAX_TEAM_NAME_LENGTH,
+  MAX_TEAMS,
+  MIN_TEAMS,
+  ROUND_COUNT,
+} from '../game/config';
 import type { GameAction } from '../game/state';
 
 const letterSchema = z.string().check(z.length(1));
@@ -13,6 +19,7 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
     teamNames: z
       .array(z.string().check(z.maxLength(MAX_TEAM_NAME_LENGTH)))
       .check(z.minLength(MIN_TEAMS), z.maxLength(MAX_TEAMS)),
+    firstRound: z.optional(z.int().check(z.minimum(1), z.maximum(ROUND_COUNT + 1))),
   }),
   z.object({
     type: z.literal('buzz'),
@@ -20,6 +27,7 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
   }),
   z.object({ type: z.literal('spin') }),
   z.object({ type: z.literal('guessConsonant'), letter: letterSchema }),
+  z.object({ type: z.literal('choosePocket'), color: z.enum(['red', 'blue']) }),
   z.object({ type: z.literal('buyVowel') }),
   z.object({ type: z.literal('guessVowel'), letter: letterSchema }),
   z.object({ type: z.literal('startSolving') }),

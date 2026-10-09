@@ -32,7 +32,10 @@ const VALUE_COLORS = [
   '#1aa3a3',
 ];
 const DIGIT_STEP = 12.5;
-const JACKPOT_FILL = '#ffd23f';
+const GOLD = '#ffd23f';
+const JACKPOT_FILL = GOLD;
+const POCKET_BLUE = '#1f5fbf';
+const POCKET_RED = '#d7263d';
 const FIRST_DIGIT_RADIUS = 82;
 
 /** What one segment of a wheel looks like. */
@@ -42,7 +45,11 @@ export interface WheelFace {
   label:
     | { kind: 'digits'; text: string }
     | { kind: 'word'; text: string; size?: number }
-    | { kind: 'envelope' };
+    | { kind: 'envelope' }
+    /** Small caption near the rim, then a bigger word along the radius. */
+    | { kind: 'caption'; caption: string; captionInk: string; text: string };
+  /** Segment cut in two along its length, with a colour on each side. */
+  halves?: { left: string; right: string };
   /** Narrow slices on both edges of the segment (the jackpot's bankrupts), as a share of it. */
   sides?: { fill: string; ink: string; text: string; share: number };
 }
@@ -74,6 +81,18 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
           fill: VALUE_COLORS[index % VALUE_COLORS.length] ?? '#2e86de',
           ink: '#ffffff',
           label: { kind: 'digits', text: String(segment.amount) },
+        };
+      case 'pocket':
+        return {
+          fill: POCKET_BLUE,
+          ink: GOLD,
+          halves: { left: POCKET_BLUE, right: POCKET_RED },
+          label: {
+            kind: 'caption',
+            caption: TV_TEXTS.wheel.pocketCaption,
+            captionInk: GOLD,
+            text: TV_TEXTS.wheel.pocket,
+          },
         };
       case 'jackpot':
         return {
@@ -144,7 +163,43 @@ function faceLabel(face: WheelFace): SVGElement[] {
       return [radialLabel(face.label.text, face.ink, face.label.size)];
     case 'envelope':
       return [envelopeIcon()];
+    case 'caption':
+      return captionLabel(face.label.caption, face.label.captionInk, face.label.text, face.ink);
   }
+}
+
+function captionLabel(
+  caption: string,
+  captionInk: string,
+  text: string,
+  ink: string,
+): SVGElement[] {
+  const small = createSvgElement('text', {
+    y: -84,
+    fill: captionInk,
+    class: 'wheel-word',
+    style: 'stroke-width: 0.3px',
+    'font-size': 3,
+    'text-anchor': 'middle',
+    'dominant-baseline': 'central',
+  });
+  small.textContent = caption;
+  const main = createSvgElement('text', {
+    transform: 'translate(0 -59) rotate(-90)',
+    fill: ink,
+    class: 'wheel-word',
+    'font-size': 11,
+    'text-anchor': 'middle',
+    'dominant-baseline': 'central',
+  });
+  main.textContent = text;
+  return [small, main];
+}
+
+function halfWedges(face: WheelFace, start: number, end: number): SVGElement[] {
+  if (face.halves === undefined) return [];
+  const middle = (start + end) / 2;
+  return [wedge(start, middle, face.halves.left), wedge(middle, end, face.halves.right)];
 }
 
 function wedge(start: number, end: number, fill: string): SVGPathElement {
@@ -190,6 +245,7 @@ function drawSegment(face: WheelFace, index: number, angle: number, trim: string
   const end = (index + 0.5) * angle;
   return createSvgElement('g', {}, [
     wedge(start, end, face.fill),
+    ...halfWedges(face, start, end),
     ...sideSlices(face, start, end, trim),
     createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, faceLabel(face)),
     peg(start, trim),

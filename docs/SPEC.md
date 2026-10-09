@@ -36,8 +36,9 @@ Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 
 - Manche 1 : petites sommes, aucun piège.
 - Manche 2 : une case PASSE.
-- Manche 3 : une BANQUEROUTE et une PASSE.
+- Manche 3 : une BANQUEROUTE, une PASSE et la case « La Bonne Poche » à midi.
 - Manche 4 : une case partagée à midi (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE) et une PASSE à 16 h.
+- La Bonne Poche : deux enveloppes, une rouge et une bleue. L'une contient une somme tirée au hasard (500 à 3 000 €), l'autre rien ; l'enveloppe gagnante est tirée à chaque fois. Bonne enveloppe : la somme s'ajoute au score de manche et l'équipe rejoue. Enveloppe vide : la main passe.
 - Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
 
 Tour de jeu, l'équipe active peut :
@@ -131,6 +132,7 @@ Phrases
 
 - Affiche : manche, équipe active, son score, message en cours.
 - Configuration : nombre d'équipes, noms, bouton « Commencer ».
+- Mode test (`&test` dans l'adresse de la manette) : choix de la manche de départ (1 à 4, ou la finale).
 - Énigme rapide : un gros bouton par équipe (équipes éliminées grisées), puis saisie de la réponse.
 - Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
 - Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
@@ -142,7 +144,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 5.
+- Version actuelle du protocole : 6.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

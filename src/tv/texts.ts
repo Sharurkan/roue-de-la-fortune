@@ -45,7 +45,11 @@ export const TV_TEXTS = {
   rank: (rank: number) => (rank === 1 ? '1er' : `${String(rank)}e`),
   newGameOnPhone: 'Nouvelle partie depuis le téléphone',
   updateController: 'Manette pas à jour : recharge la page sur le téléphone',
-  wheel: { bankrupt: 'BANQUEROUTE', pass: 'PASSE' },
+  wheel: { bankrupt: 'BANQUEROUTE', pass: 'PASSE', pocketCaption: 'LA BONNE', pocket: 'POCHE' },
+  pocketHint: 'Sur le téléphone : enveloppe rouge ou bleue ?',
+  pocketRed: 'Rouge',
+  pocketBlue: 'Bleue',
+  pocketEmpty: 'Rien',
 } as const;
 
 const STATUS_LABELS: Record<ConnectionStatus['kind'], string> = {
@@ -88,6 +92,12 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
       return `Manche ${String(event.roundNumber)} : c'est parti !`;
     case 'bankrupt':
       return `BANQUEROUTE ! ${teamName(event.team)} perd son score de manche`;
+    case 'pocketOffered':
+      return `La Bonne Poche ! ${teamName(event.team)}, rouge ou bleue ?`;
+    case 'pocketOpened':
+      return event.chosen === event.winning
+        ? `Bonne poche ! ${teamName(event.team)} gagne ${euros(event.amount)}`
+        : `Raté ! L'argent était dans l'enveloppe ${event.winning === 'red' ? 'rouge' : 'bleue'}`;
     case 'landedOnPass':
       return `PASSE ! ${teamName(event.team)} passe son tour`;
     case 'letterFound':

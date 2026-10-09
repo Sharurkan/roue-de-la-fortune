@@ -1,4 +1,4 @@
-import type { SlotPart } from './state';
+import type { PocketColor, SlotPart } from './state';
 
 export type RejectionReason =
   | 'wrongPhase'
@@ -11,6 +11,8 @@ export type RejectionReason =
   | 'invalidAnswer'
   | 'noPicksLeft'
   | 'invalidTeam'
+  | 'invalidRound'
+  | 'invalidPocket'
   | 'teamEliminated';
 
 export type GameEvent =
@@ -24,6 +26,14 @@ export type GameEvent =
   | { type: 'wheelSpun'; segmentIndex: number; part: SlotPart }
   | { type: 'bankrupt'; team: number }
   | { type: 'landedOnPass'; team: number }
+  | { type: 'pocketOffered'; team: number }
+  | {
+      type: 'pocketOpened';
+      team: number;
+      chosen: PocketColor;
+      winning: PocketColor;
+      amount: number;
+    }
   | { type: 'letterFound'; letter: string; count: number; gain: number }
   | { type: 'letterAbsent'; letter: string }
   | { type: 'vowelBought'; team: number; cost: number }

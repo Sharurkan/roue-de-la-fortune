@@ -76,6 +76,20 @@ describe('toPublicView', () => {
     ]);
   });
 
+  it('never tells the phone which envelope holds the money', () => {
+    const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
+    const base = play(phrase, START);
+    if (base.phase !== 'playing') throw new Error('Expected playing');
+    const offered: GameState = {
+      ...base,
+      step: { kind: 'choosingPocket', winning: 'blue', amount: 1500 },
+    };
+    const view = toPublicView(offered, []);
+    expect(view.step).toBe('choosingPocket');
+    expect(JSON.stringify(view)).not.toContain('blue');
+    expect(JSON.stringify(view)).not.toContain('1500');
+  });
+
   it('tells the phone when the TV is still animating', () => {
     expect(toPublicView(INITIAL_STATE, []).busy).toBe(false);
     const view = toPublicView(INITIAL_STATE, [], true);

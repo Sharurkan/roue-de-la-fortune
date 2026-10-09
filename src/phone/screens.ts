@@ -1,6 +1,7 @@
 import {
   CONSONANTS,
   MAX_TEAM_NAME_LENGTH,
+  ROUND_COUNT,
   MAX_TEAMS,
   MIN_TEAMS,
   VOWEL_COST,
@@ -17,6 +18,9 @@ export type ConfirmableAction = 'abandonGame';
 export interface SetupDraft {
   teamCount: number;
   names: string[];
+  /** Only offered in test mode. */
+  firstRound: number;
+  testMode: boolean;
 }
 
 export interface ScreenContext {
@@ -49,6 +53,28 @@ function note(text: string): HTMLElement {
   return createElement('p', { className: 'note', text });
 }
 
+function firstRoundChoice(context: ScreenContext): HTMLElement[] {
+  const { setup } = context;
+  const rounds = Array.from({ length: ROUND_COUNT + 1 }, (_, i) => i + 1);
+  return [
+    createElement('p', { className: 'label', text: texts.firstRound }),
+    createElement(
+      'div',
+      { className: 'choices' },
+      rounds.map((round) =>
+        button(
+          texts.firstRoundChoice(round, round > ROUND_COUNT),
+          () => {
+            setup.firstRound = round;
+            context.refresh();
+          },
+          { className: round === setup.firstRound ? 'choice selected' : 'choice' },
+        ),
+      ),
+    ),
+  ];
+}
+
 function setupScreen(context: ScreenContext): HTMLElement {
   const { setup } = context;
   const counts = Array.from({ length: MAX_TEAMS - MIN_TEAMS + 1 }, (_, i) => MIN_TEAMS + i);
@@ -73,12 +99,18 @@ function setupScreen(context: ScreenContext): HTMLElement {
     return input;
   });
   const start = (): void => {
-    context.send({ type: 'startGame', teamNames: teamNamesFor(setup.names, setup.teamCount) });
+    const teamNames = teamNamesFor(setup.names, setup.teamCount);
+    context.send(
+      setup.testMode
+        ? { type: 'startGame', teamNames, firstRound: setup.firstRound }
+        : { type: 'startGame', teamNames },
+    );
   };
   return createElement('div', { className: 'screen' }, [
     createElement('p', { className: 'label', text: texts.teamCount }),
     createElement('div', { className: 'choices' }, countButtons),
     ...inputs,
+    ...(setup.testMode ? firstRoundChoice(context) : []),
     button(texts.start, start, { disabled: !context.enabled }),
   ]);
 }
@@ -337,6 +369,24 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
       return createElement('div', { className: 'screen' }, [
         createElement('p', { className: 'headline', text: texts.chooseConsonant(screen.value) }),
         keyboard(context, CONSONANTS, (letter) => ({ type: 'guessConsonant', letter })),
+      ]);
+    case 'pocket':
+      return createElement('div', { className: 'screen' }, [
+        createElement('p', { className: 'headline', text: texts.choosePocket }),
+        button(
+          texts.redPocket,
+          () => {
+            context.send({ type: 'choosePocket', color: 'red' });
+          },
+          { className: 'big-button pocket-red', disabled: !context.enabled },
+        ),
+        button(
+          texts.bluePocket,
+          () => {
+            context.send({ type: 'choosePocket', color: 'blue' });
+          },
+          { className: 'big-button pocket-blue', disabled: !context.enabled },
+        ),
       ]);
     case 'vowel':
       return createElement('div', { className: 'screen' }, [

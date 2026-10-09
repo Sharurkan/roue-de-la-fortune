@@ -34,6 +34,8 @@ import {
 } from './selectors';
 import type { GameAction, GameState, PlayingState, Round } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
+import { offerPocket, openPocket } from './pocket';
+import { passTurn } from './round';
 import { pickSlotPart, wheelForRound } from './wheel';
 import { buzz, revealTossUpLetter, startTossUp, submitTossUpAnswer } from './toss-up';
 
@@ -42,7 +44,7 @@ export type { GameDeps, ReduceResult } from './common';
 export function reduce(state: GameState, action: GameAction, deps: GameDeps): ReduceResult {
   switch (action.type) {
     case 'startGame':
-      return startGame(state, action.teamNames, deps);
+      return startGame(state, action.teamNames, action.firstRound ?? 1, deps);
     case 'revealTossUpLetter':
       return state.phase === 'tossUp' ? revealTossUpLetter(state) : reject(state, 'wrongPhase');
     case 'buzz':
@@ -50,7 +52,9 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
     case 'spin':
       return spin(state, deps);
     case 'spinEnded':
-      return spinEnded(state);
+      return spinEnded(state, deps);
+    case 'choosePocket':
+      return choosePocket(state, action.color);
     case 'guessConsonant':
       return guessConsonant(state, action.letter);
     case 'buyVowel':
@@ -77,17 +81,29 @@ function teamName(input: string, index: number): string {
   return trimmed === '' ? `${DEFAULT_TEAM_NAME_PREFIX} ${String(index + 1)}` : trimmed;
 }
 
-function startGame(state: GameState, teamNames: string[], deps: GameDeps): ReduceResult {
+function startGame(
+  state: GameState,
+  teamNames: string[],
+  firstRound: number,
+  deps: GameDeps,
+): ReduceResult {
   if (state.phase !== 'setup') return reject(state, 'wrongPhase');
   if (teamNames.length < MIN_TEAMS || teamNames.length > MAX_TEAMS) {
     return reject(state, 'invalidTeamCount');
+  }
+  if (!Number.isInteger(firstRound) || firstRound < 1 || firstRound > ROUND_COUNT + 1) {
+    return reject(state, 'invalidRound');
   }
   const teams = teamNames.map((name, index) => ({
     name: teamName(name, index),
     roundScore: 0,
     totalScore: 0,
   }));
-  return startTossUp({ teams, roundNumber: 1, usedPhraseIndexes: [], usedTossUpIndexes: [] }, deps);
+  if (firstRound > ROUND_COUNT) return startFinal(teams, 0, deps);
+  return startTossUp(
+    { teams, roundNumber: firstRound, usedPhraseIndexes: [], usedTossUpIndexes: [] },
+    deps,
+  );
 }
 
 function isChoosing(state: GameState): state is PlayingState & { step: { kind: 'choosing' } } {
@@ -107,7 +123,7 @@ function spin(state: GameState, deps: GameDeps): ReduceResult {
   };
 }
 
-function spinEnded(state: GameState): ReduceResult {
+function spinEnded(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase === 'final') return prizeWheelStopped(state);
   if (state.phase !== 'playing' || state.step.kind !== 'spinning') {
     return reject(state, 'wrongPhase');
@@ -137,6 +153,8 @@ function spinEnded(state: GameState): ReduceResult {
     }
     case 'pass':
       return passTurn(state, [{ type: 'landedOnPass', team }]);
+    case 'pocket':
+      return offerPocket(state, deps);
     case undefined:
       return reject(state, 'wrongPhase');
   }
@@ -268,7 +286,7 @@ function cancel(state: GameState): ReduceResult {
 /** Each regular round opens with a toss-up. After the last one, "next" leads to the final. */
 function nextRound(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
-  if (state.roundNumber >= ROUND_COUNT) return startFinal(state, deps);
+  if (state.roundNumber >= ROUND_COUNT) return startFinal(state.teams, state.winner, deps);
   const { teams, usedPhraseIndexes, usedTossUpIndexes } = state;
   return startTossUp(
     { teams, roundNumber: state.roundNumber + 1, usedPhraseIndexes, usedTossUpIndexes },
@@ -288,10 +306,10 @@ function newGame(state: GameState): ReduceResult {
   return { state: { phase: 'setup' }, events: [] };
 }
 
-function passTurn(state: PlayingState, events: GameEvent[]): ReduceResult {
-  const team = (state.round.activeTeam + 1) % state.teams.length;
-  return {
-    state: { ...state, round: { ...state.round, activeTeam: team }, step: { kind: 'choosing' } },
-    events: [...events, { type: 'turnPassed', team }],
-  };
+function choosePocket(state: GameState, color: string): ReduceResult {
+  if (state.phase !== 'playing' || state.step.kind !== 'choosingPocket') {
+    return reject(state, 'wrongPhase');
+  }
+  if (color !== 'red' && color !== 'blue') return reject(state, 'invalidPocket');
+  return openPocket(state, state.step, color);
 }

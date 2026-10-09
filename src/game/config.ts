@@ -6,7 +6,9 @@ export type WheelSegment =
    */
   | { kind: 'jackpot'; amount: number }
   | { kind: 'bankrupt' }
-  | { kind: 'pass' };
+  | { kind: 'pass' }
+  /** "La Bonne Poche": two envelopes, one holds money, the other nothing. */
+  | { kind: 'pocket' };
 
 /** Share of the jackpot slot taken by the bankrupt on each of its edges. */
 export const JACKPOT_SIDE_SHARE = 0.25;
@@ -15,10 +17,14 @@ const v = (amount: number): WheelSegment => ({ kind: 'value', amount });
 const BANKRUPT: WheelSegment = { kind: 'bankrupt' };
 const PASS: WheelSegment = { kind: 'pass' };
 const JACKPOT: WheelSegment = { kind: 'jackpot', amount: 5000 };
+const POCKET: WheelSegment = { kind: 'pocket' };
+
+/** "La Bonne Poche": the amount hidden in the winning envelope, drawn each time. */
+export const POCKET_AMOUNTS: readonly number[] = [500, 1000, 1500, 2000, 3000];
 
 /**
  * One wheel per regular round, like on TV, clockwise from 12 o'clock.
- * Round 1 has small amounts and no traps; round 4 has the 5 000 € jackpot, shared with two bankrupts.
+ * Round 1 has small amounts and no traps; round 3 has La Bonne Poche; round 4 has the 5 000 € jackpot, shared with two bankrupts.
  */
 export const WHEELS: readonly (readonly WheelSegment[])[] = [
   [
@@ -74,7 +80,7 @@ export const WHEELS: readonly (readonly WheelSegment[])[] = [
     PASS,
   ],
   [
-    v(150),
+    POCKET,
     v(300),
     v(100),
     v(250),

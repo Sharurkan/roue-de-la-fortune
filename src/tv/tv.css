@@ -511,3 +511,49 @@
 .wheel.is-hidden {
   display: none;
 }
+
+/* La Bonne Poche: two envelopes over the wheel. */
+.wheel-slot {
+  position: relative;
+}
+
+.pockets {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  gap: 3vh;
+  transform: translate(-50%, -50%);
+}
+
+.pocket {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 26vh;
+  height: 18vh;
+  border: 0.5vh solid #ffd23f;
+  border-radius: 1.5vh;
+  box-shadow: 0 1vh 3vh rgba(0, 0, 0, 0.6);
+  font-family: var(--font-title);
+  animation: appear 0.4s ease-out;
+}
+
+.pocket-red {
+  background: #d7263d;
+}
+
+.pocket-blue {
+  background: #1f5fbf;
+}
+
+.pocket-label {
+  font-size: 3vh;
+}
+
+.pocket-content {
+  font-size: 5vh;
+  color: #ffd23f;
+}

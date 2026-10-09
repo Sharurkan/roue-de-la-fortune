@@ -1,4 +1,5 @@
 import './phone.css';
+import { isTestMode } from '../shared/mode';
 import { startClient } from '../net/client';
 import type { ConnectionStatus } from '../net/connection-status';
 import { isValidRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from '../net/room-code';
@@ -105,7 +106,12 @@ function showController(root: HTMLElement, code: string): void {
   let pendingTimer: ReturnType<typeof setTimeout> | undefined;
   let confirming: ConfirmableAction | null = null;
   let renderedKey = '';
-  const setup: SetupDraft = { teamCount: 2, names: [] };
+  const setup: SetupDraft = {
+    teamCount: 2,
+    names: [],
+    firstRound: 1,
+    testMode: isTestMode(window.location.search),
+  };
 
   const statusElement = createElement('div', { className: 'connection' });
   const header = createElement('div', { className: 'header' });
@@ -138,7 +144,13 @@ function showController(root: HTMLElement, code: string): void {
     const screen = describeScreen(current);
     const enabled = status.kind === 'connected' && !pending && !current.busy;
     // Rebuilding the screen would wipe what is being typed: only do it when something changed.
-    const key = JSON.stringify({ screen, enabled, confirming, setup: setup.teamCount, current });
+    const key = JSON.stringify({
+      screen,
+      enabled,
+      confirming,
+      setup: [setup.teamCount, setup.firstRound],
+      current,
+    });
     if (key === renderedKey) return;
     renderedKey = key;
     body.replaceChildren(

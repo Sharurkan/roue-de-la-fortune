@@ -35,6 +35,8 @@ const GAME_DEPS: GameDeps = {
 const FINAL_RESULT_PAUSE_MS = 6000;
 /** After the toss-up, its answer stays on screen before the round board appears. */
 const TOSS_UP_RESULT_PAUSE_MS = 3000;
+/** Both envelopes stay open a while, so everyone sees where the money was. */
+const POCKET_RESULT_PAUSE_MS = 3500;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,6 +101,7 @@ function isSlow(event: GameEvent): boolean {
     case 'finalLost':
     case 'tossUpWon':
     case 'tossUpFailed':
+    case 'pocketOpened':
       return true;
     default:
       return false;
@@ -188,6 +191,15 @@ export function startTv(root: HTMLElement): void {
         return;
       case 'letterFound':
         await game.board.reveal([event.letter], () => sound?.reveal());
+        return;
+      case 'pocketOffered':
+        sound?.roundStart();
+        return;
+      case 'pocketOpened':
+        game.openPockets(event.winning, event.amount);
+        if (event.chosen === event.winning) sound?.win();
+        else sound?.absent();
+        await wait(POCKET_RESULT_PAUSE_MS);
         return;
       case 'letterAbsent':
       case 'wrongSolution':

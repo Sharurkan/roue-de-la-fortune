@@ -123,6 +123,31 @@ describe('game setup', () => {
     expect(state.teams.every((t) => t.roundScore === 0 && t.totalScore === 0)).toBe(true);
   });
 
+  it('can start at a later round, for testing', () => {
+    const teamNames = ['A', 'B'];
+    const { state } = reduce(
+      { phase: 'setup' },
+      { type: 'startGame', teamNames, firstRound: 3 },
+      deps(),
+    );
+    expect(state.phase === 'tossUp' && state.roundNumber).toBe(3);
+  });
+
+  it('can start directly at the final, for testing', () => {
+    const teamNames = ['A', 'B'];
+    const { state } = reduce(
+      { phase: 'setup' },
+      { type: 'startGame', teamNames, firstRound: 5 },
+      deps(),
+    );
+    expect(state.phase).toBe('final');
+  });
+
+  it.each([0, 6, 1.5])('rejects the first round %d', (firstRound) => {
+    const action: GameAction = { type: 'startGame', teamNames: ['A', 'B'], firstRound };
+    expect(reduce({ phase: 'setup' }, action, deps()).events).toEqual(rejection('invalidRound'));
+  });
+
   it('rejects game actions before the game starts', () => {
     const result = reduce({ phase: 'setup' }, { type: 'spin' }, deps());
     expect(result.events).toEqual(rejection('wrongPhase'));

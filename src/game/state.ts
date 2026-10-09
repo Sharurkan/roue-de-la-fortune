@@ -16,11 +16,15 @@ export interface Round {
 /** Where the pointer stops inside the slot. Only the jackpot slot has distinct parts. */
 export type SlotPart = 'left' | 'middle' | 'right';
 
+export type PocketColor = 'red' | 'blue';
+
 export type TurnStep =
   | { kind: 'choosing' }
   | { kind: 'spinning'; segmentIndex: number; part: SlotPart }
   /** perLetter is false for the jackpot: its amount is won once, not per letter. */
   | { kind: 'guessingConsonant'; amount: number; perLetter: boolean }
+  /** The phone never learns which envelope wins nor its amount. */
+  | { kind: 'choosingPocket'; winning: PocketColor; amount: number }
   | { kind: 'guessingVowel' }
   | { kind: 'solving' };
 
@@ -98,12 +102,14 @@ export type GameState =
   { phase: 'setup' } | TossUpState | PlayingState | RoundOverState | FinalState | GameOverState;
 
 export type GameAction =
-  | { type: 'startGame'; teamNames: string[] }
+  /** firstRound skips earlier rounds, for testing; ROUND_COUNT + 1 starts at the final. */
+  | { type: 'startGame'; teamNames: string[]; firstRound?: number | undefined }
   | { type: 'revealTossUpLetter' }
   | { type: 'buzz'; team: number }
   | { type: 'spin' }
   | { type: 'spinEnded' }
   | { type: 'guessConsonant'; letter: string }
+  | { type: 'choosePocket'; color: PocketColor }
   | { type: 'buyVowel' }
   | { type: 'guessVowel'; letter: string }
   | { type: 'startSolving' }

@@ -167,3 +167,13 @@
 .phone-ranking li {
   margin-bottom: 8px;
 }
+
+.pocket-red {
+  border-color: #ff8a8a;
+  background: #c81e32;
+}
+
+.pocket-blue {
+  border-color: #8ab8ff;
+  background: #1f5fbf;
+}

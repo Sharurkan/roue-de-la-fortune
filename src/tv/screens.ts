@@ -7,6 +7,7 @@ import type {
   PlayingState,
   RoundOverState,
   Team,
+  PocketColor,
   TossUpState,
 } from '../game/state';
 import { createElement } from '../shared/dom';
@@ -70,6 +71,8 @@ export interface GameScreen {
   showMessage(text: string): void;
   /** Brief red flash of the whole screen. */
   flash(): void;
+  /** La Bonne Poche: shows what both envelopes held. */
+  openPockets(winning: PocketColor, amount: number): void;
   render(state: BoardState): void;
 }
 
@@ -106,9 +109,46 @@ function renderTeams(
   );
 }
 
+interface Pockets {
+  element: HTMLElement;
+  show: (visible: boolean) => void;
+  open: (winning: PocketColor, amount: number) => void;
+}
+
+/** Two big envelopes over the wheel, closed until the team picks one. */
+function createPockets(): Pockets {
+  const content = { red: createElement('div'), blue: createElement('div') };
+  const envelope = (color: PocketColor, label: string): HTMLElement =>
+    createElement('div', { className: `pocket pocket-${color}` }, [
+      createElement('div', { className: 'pocket-label', text: label }),
+      createElement('div', { className: 'pocket-content' }, [content[color]]),
+    ]);
+  const element = createElement('div', { className: 'pockets' }, [
+    envelope('red', TV_TEXTS.pocketRed),
+    envelope('blue', TV_TEXTS.pocketBlue),
+  ]);
+  element.hidden = true;
+  return {
+    element,
+    show: (visible) => {
+      element.hidden = !visible;
+      if (!visible) return;
+      content.red.textContent = '?';
+      content.blue.textContent = '?';
+    },
+    open: (winning, amount) => {
+      element.hidden = false;
+      const prize = TV_TEXTS.euros(amount);
+      content.red.textContent = winning === 'red' ? prize : TV_TEXTS.pocketEmpty;
+      content.blue.textContent = winning === 'blue' ? prize : TV_TEXTS.pocketEmpty;
+    },
+  };
+}
+
 export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
   const wheels = WHEELS.map((segments) => createWheel(segmentFaces(segments), onTick));
+  const pockets = createPockets();
   const prizeWheel = createWheel(envelopeFaces(FINAL_PRIZES.length), onTick);
   prizeWheel.element.classList.add('prize-wheel');
   const header = createElement('header', { className: 'game-header' });
@@ -121,6 +161,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     header,
     createElement('div', { className: 'board-frame' }, [board.element, theme]),
     createElement('div', { className: 'wheel-slot' }, [
+      pockets.element,
       ...wheels.map((w) => w.element),
       prizeWheel.element,
     ]),
@@ -191,7 +232,13 @@ export function createGameScreen(onTick: () => void): GameScreen {
     renderTeams(teams, state.teams, state.phase === 'playing' ? round.activeTeam : state.winner);
     const used = round.guessedLetters.join(' ');
     letters.textContent = `${TV_TEXTS.usedLetters} : ${used === '' ? TV_TEXTS.noUsedLetters : used}`;
-    hint.textContent = state.phase === 'roundOver' ? TV_TEXTS.waitingForNextRound : '';
+    const choosingPocket = state.phase === 'playing' && state.step.kind === 'choosingPocket';
+    pockets.show(choosingPocket);
+    hint.textContent = choosingPocket
+      ? TV_TEXTS.pocketHint
+      : state.phase === 'roundOver'
+        ? TV_TEXTS.waitingForNextRound
+        : '';
   }
 
   return {
@@ -203,6 +250,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
       banner.textContent = text;
       restartAnimation(banner, 'appear');
     },
+    openPockets: pockets.open,
     flash: () => {
       restartAnimation(element, 'flash');
     },

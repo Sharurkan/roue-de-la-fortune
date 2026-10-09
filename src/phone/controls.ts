@@ -16,6 +16,7 @@ export type PhoneScreen =
   | { kind: 'spinning' }
   | { kind: 'consonant'; value: number }
   | { kind: 'vowel' }
+  | { kind: 'pocket' }
   | { kind: 'solving' }
   | { kind: 'roundOver'; winner: number | null; isLastRound: boolean }
   | { kind: 'prizeWheel' }
@@ -32,6 +33,8 @@ function roundScreen(view: PublicView): PhoneScreen {
       return { kind: 'consonant', value: view.consonantValue ?? 0 };
     case 'guessingVowel':
       return { kind: 'vowel' };
+    case 'choosingPocket':
+      return { kind: 'pocket' };
     case 'solving':
       return { kind: 'solving' };
     case 'choosing':

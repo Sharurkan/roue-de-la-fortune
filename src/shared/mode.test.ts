@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMode } from './mode';
+import { isTestMode, parseMode } from './mode';
 
 describe('parseMode', () => {
   it('recognizes the TV mode', () => {
@@ -20,5 +20,12 @@ describe('parseMode', () => {
 
   it('returns null for an unknown mode', () => {
     expect(parseMode('?mode=admin')).toBeNull();
+  });
+});
+
+describe('isTestMode', () => {
+  it('is on with &test only', () => {
+    expect(isTestMode('?mode=manette&code=ABCD&test')).toBe(true);
+    expect(isTestMode('?mode=manette&code=ABCD')).toBe(false);
   });
 });

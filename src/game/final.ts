@@ -15,7 +15,7 @@ import {
   type GameDeps,
   type ReduceResult,
 } from './common';
-import type { FinalState, RoundOverState, Team } from './state';
+import type { FinalState, Team } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
 
 /** Highest total wins the final. On a tie, the winner of the last round, else the first team. */
@@ -25,14 +25,14 @@ export function pickFinalist(teams: readonly Team[], lastRoundWinner: number): n
   return teams.findIndex((team) => team.totalScore === best);
 }
 
-export function startFinal(state: RoundOverState, deps: GameDeps): ReduceResult {
+export function startFinal(teams: Team[], lastRoundWinner: number, deps: GameDeps): ReduceResult {
   const phrase = deps.finalPhrases[pickIndex(deps.random, deps.finalPhrases.length)];
   if (phrase === undefined) throw new Error('No final phrase available');
-  const finalist = pickFinalist(state.teams, state.winner);
+  const finalist = pickFinalist(teams, lastRoundWinner);
   return {
     state: {
       phase: 'final',
-      teams: state.teams,
+      teams,
       finalist,
       step: { kind: 'prizeWheel' },
       final: { phrase, prizeIndex: null, pickedLetters: [] },

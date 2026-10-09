@@ -1,5 +1,6 @@
 import { pickUnused, type GameDeps, type ReduceResult } from './common';
-import type { GameProgress } from './state';
+import type { GameEvent } from './events';
+import type { GameProgress, PlayingState } from './state';
 
 /** Starts a regular round with a fresh phrase. The given team plays first. */
 export function startRound(
@@ -19,5 +20,13 @@ export function startRound(
       round: { phrase, guessedLetters: [], activeTeam: startingTeam },
     },
     events: [{ type: 'roundStarted', roundNumber: progress.roundNumber }],
+  };
+}
+
+export function passTurn(state: PlayingState, events: GameEvent[]): ReduceResult {
+  const team = (state.round.activeTeam + 1) % state.teams.length;
+  return {
+    state: { ...state, round: { ...state.round, activeTeam: team }, step: { kind: 'choosing' } },
+    events: [...events, { type: 'turnPassed', team }],
   };
 }
