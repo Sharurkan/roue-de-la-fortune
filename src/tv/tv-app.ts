@@ -1,6 +1,6 @@
 import './tv.css';
 import type { GameEvent } from '../game/events';
-import { PHRASES } from '../game/phrases';
+import { FINAL_PHRASES, PHRASES } from '../game/phrases';
 import { rankTeams } from '../game/ranking';
 import { reduce, type GameDeps, type ReduceResult } from '../game/reducer';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
@@ -24,7 +24,31 @@ import { createSound, type Sound } from './sound';
 import { keepScreenOn } from './wake-lock';
 import { eventMessage, statusLabel, TV_TEXTS } from './texts';
 
-const GAME_DEPS: GameDeps = { random: Math.random, phrases: PHRASES };
+const GAME_DEPS: GameDeps = {
+  random: Math.random,
+  phrases: PHRASES,
+  finalPhrases: FINAL_PHRASES,
+};
+/** After the final answer, the whole board and the envelope stay on screen a while. */
+const FINAL_RESULT_PAUSE_MS = 6000;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** The phrase shown on the board, if the state has one. */
+function boardPhrase(state: GameState): string | null {
+  switch (state.phase) {
+    case 'playing':
+    case 'roundOver':
+      return state.round.phrase.text;
+    case 'final':
+      return state.final.phrase.text;
+    case 'setup':
+    case 'gameOver':
+      return null;
+  }
+}
 
 function controllerUrl(code: string): string {
   return `${window.location.origin}${window.location.pathname}?mode=manette&code=${code}`;
@@ -33,6 +57,18 @@ function controllerUrl(code: string): string {
 function initialRoomCode(): string {
   const saved = loadRoomCode();
   return saved !== null && isValidRoomCode(saved) ? saved : generateRoomCode(Math.random);
+}
+
+/** A wheel that was spinning when the page was reloaded: spin it again to the same result. */
+function interruptedSpin(state: GameState): GameEvent[] {
+  if (state.phase === 'playing' && state.step.kind === 'spinning') {
+    return [{ type: 'wheelSpun', segmentIndex: state.step.segmentIndex }];
+  }
+  if (state.phase === 'final' && state.step.kind === 'prizeSpinning') {
+    const { prizeIndex } = state.final;
+    return prizeIndex === null ? [] : [{ type: 'prizeWheelSpun', prizeIndex }];
+  }
+  return [];
 }
 
 function teamNameIn(state: GameState): (team: number) => string {
@@ -99,10 +135,14 @@ export function startTv(root: HTMLElement): void {
 
   function render(current: GameState): void {
     setup.element.hidden = current.phase !== 'setup';
-    game.element.hidden = current.phase !== 'playing' && current.phase !== 'roundOver';
+    game.element.hidden = boardPhrase(current) === null;
     final.element.hidden = current.phase !== 'gameOver';
-    if (current.phase === 'playing' || current.phase === 'roundOver') game.render(current);
-    if (current.phase === 'gameOver') final.render(current.teams, rankTeams(current.teams));
+    if (current.phase === 'playing' || current.phase === 'roundOver' || current.phase === 'final') {
+      game.render(current);
+    }
+    if (current.phase === 'gameOver') {
+      final.render(current.teams, rankTeams(current.teams), current.final);
+    }
   }
 
   async function animate(event: GameEvent): Promise<void> {
@@ -129,6 +169,24 @@ export function startTv(root: HTMLElement): void {
         game.board.revealAll();
         sound?.win();
         return;
+      case 'finalStarted':
+        sound?.roundStart();
+        return;
+      case 'prizeWheelSpun':
+        await game.prizeWheel.spin(event.prizeIndex);
+        dispatch({ type: 'spinEnded' });
+        return;
+      case 'finalLettersGiven':
+      case 'finalLettersRevealed':
+        await game.board.reveal(event.letters, () => sound?.reveal());
+        return;
+      case 'finalWon':
+      case 'finalLost':
+        game.board.revealAll();
+        if (event.type === 'finalWon') sound?.win();
+        else sound?.absent();
+        await wait(FINAL_RESULT_PAUSE_MS);
+        return;
       default:
         return;
     }
@@ -136,8 +194,8 @@ export function startTv(root: HTMLElement): void {
 
   async function present(result: ReduceResult): Promise<void> {
     const { state: next, events } = result;
-    const isRound = next.phase === 'playing' || next.phase === 'roundOver';
-    if (isRound && game.board.phrase() !== next.round.phrase.text) render(next);
+    const phrase = boardPhrase(next);
+    if (phrase !== null && game.board.phrase() !== phrase) render(next);
     const banner = bannerText(result);
     if (banner !== null) game.showMessage(banner);
     for (const event of events) await animate(event);
@@ -207,11 +265,9 @@ export function startTv(root: HTMLElement): void {
 
   /** After a reload in the middle of a round: say so, and finish a wheel spin that was cut short. */
   function resume(): void {
-    if (state.phase !== 'playing' && state.phase !== 'roundOver') return;
+    if (boardPhrase(state) === null) return;
     game.showMessage(TV_TEXTS.gameResumed);
-    if (state.phase === 'playing' && state.step.kind === 'spinning') {
-      const events: GameEvent[] = [{ type: 'wheelSpun', segmentIndex: state.step.segmentIndex }];
-      presentation = present({ state, events });
-    }
+    const events = interruptedSpin(state);
+    if (events.length > 0) presentation = present({ state, events });
   }
 }

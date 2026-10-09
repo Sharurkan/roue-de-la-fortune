@@ -10,9 +10,9 @@ import type { PhoneAction } from '../protocol/actions';
 import type { PublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
 import { letterKeys, teamNamesFor, type PhoneScreen } from './controls';
-import { PHONE_TEXTS } from './texts';
+import { PHONE_TEXTS, prizeLabel } from './texts';
 
-export type ConfirmableAction = 'endGame' | 'abandonGame';
+export type ConfirmableAction = 'abandonGame';
 
 export interface SetupDraft {
   teamCount: number;
@@ -120,6 +120,7 @@ function keyboard(
   context: ScreenContext,
   letters: string,
   toAction: (letter: string) => PhoneAction,
+  locked = false,
 ): HTMLElement {
   return createElement(
     'div',
@@ -132,7 +133,7 @@ function keyboard(
         },
         {
           className: 'key',
-          disabled: used || !context.enabled,
+          disabled: used || locked || !context.enabled,
         },
       ),
     ),
@@ -152,15 +153,17 @@ function cancelButton(context: ScreenContext): HTMLButtonElement {
   );
 }
 
-function solvingScreen(context: ScreenContext): HTMLElement {
+/** The final allows a single try: no way back, so no cancel button. */
+function solvingScreen(context: ScreenContext, isFinal = false): HTMLElement {
   const input = createElement('input', { className: 'text-input' });
   input.autocomplete = 'off';
   const validate = createElement('button', { className: 'big-button', text: texts.validate });
   validate.disabled = !context.enabled;
+  const label = isFinal ? texts.finalAnswer : texts.solutionLabel;
   const form = createElement('form', { className: 'screen' }, [
-    createElement('label', { className: 'label', text: texts.solutionLabel }, [input]),
+    createElement('label', { className: 'label', text: label }, [input]),
     validate,
-    cancelButton(context),
+    ...(isFinal ? [] : [cancelButton(context)]),
   ]);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -173,7 +176,6 @@ function solvingScreen(context: ScreenContext): HTMLElement {
 }
 
 const CONFIRMATION_LABELS: Record<ConfirmableAction, { ask: string; confirm: string }> = {
-  endGame: { ask: texts.endGame, confirm: texts.confirmEndGame },
   abandonGame: { ask: texts.abandonGame, confirm: texts.confirmAbandonGame },
 };
 
@@ -198,13 +200,17 @@ function confirmButton(context: ScreenContext, action: ConfirmableAction): HTMLB
   );
 }
 
-function roundOverScreen(context: ScreenContext, winner: number | null): HTMLElement {
+function roundOverScreen(
+  context: ScreenContext,
+  winner: number | null,
+  isLastRound: boolean,
+): HTMLElement {
   const name = winner === null ? '' : (context.view.teams[winner]?.name ?? '');
-  const end = confirmButton(context, 'endGame');
+  const end = confirmButton(context, 'abandonGame');
   return createElement('div', { className: 'screen' }, [
     createElement('p', { className: 'headline', text: texts.roundWinner(name) }),
     button(
-      texts.nextRound,
+      isLastRound ? texts.toFinal : texts.nextRound,
       () => {
         context.send({ type: 'nextRound' });
       },
@@ -216,9 +222,53 @@ function roundOverScreen(context: ScreenContext, winner: number | null): HTMLEle
   ]);
 }
 
+function finalResultLine(view: PublicView): HTMLElement[] {
+  const result = view.finalResult;
+  if (result === null) return [];
+  const name = view.teams[result.finalist]?.name ?? '';
+  const prize = prizeLabel(result.prize);
+  const text = result.won ? texts.finalWon(name, prize) : texts.finalLost(name, prize);
+  return [createElement('p', { className: 'headline', text })];
+}
+
+function prizeWheelScreen(context: ScreenContext, spinning: boolean): HTMLElement {
+  return createElement('div', { className: 'screen' }, [
+    ...(spinning ? [createElement('p', { className: 'headline', text: texts.prizeSpinning })] : []),
+    button(
+      texts.spinPrizeWheel,
+      () => {
+        context.send({ type: 'spin' });
+      },
+      { disabled: spinning || !context.enabled },
+    ),
+    confirmButton(context, 'abandonGame'),
+  ]);
+}
+
+function finalPickingScreen(
+  context: ScreenContext,
+  consonantsLeft: number,
+  vowelsLeft: number,
+): HTMLElement {
+  return createElement('div', { className: 'screen' }, [
+    createElement('p', {
+      className: 'headline',
+      text: texts.finalPicks(consonantsLeft, vowelsLeft),
+    }),
+    keyboard(
+      context,
+      CONSONANTS,
+      (letter) => ({ type: 'guessConsonant', letter }),
+      consonantsLeft === 0,
+    ),
+    keyboard(context, VOWELS, (letter) => ({ type: 'guessVowel', letter }), vowelsLeft === 0),
+  ]);
+}
+
 function gameOverScreen(context: ScreenContext): HTMLElement {
   const { view } = context;
   return createElement('div', { className: 'screen' }, [
+    ...finalResultLine(view),
     createElement(
       'ol',
       { className: 'phone-ranking' },
@@ -268,7 +318,15 @@ export function renderScreen(screen: PhoneScreen, context: ScreenContext): HTMLE
     case 'solving':
       return solvingScreen(context);
     case 'roundOver':
-      return roundOverScreen(context, screen.winner);
+      return roundOverScreen(context, screen.winner, screen.isLastRound);
+    case 'prizeWheel':
+      return prizeWheelScreen(context, false);
+    case 'prizeSpinning':
+      return prizeWheelScreen(context, true);
+    case 'finalPicking':
+      return finalPickingScreen(context, screen.consonantsLeft, screen.vowelsLeft);
+    case 'finalSolving':
+      return solvingScreen(context, true);
     case 'gameOver':
       return gameOverScreen(context);
   }

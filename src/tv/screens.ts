@@ -1,11 +1,12 @@
-import { WHEEL_SEGMENTS } from '../game/config';
+import { FINAL_PRIZES, WHEEL_SEGMENTS } from '../game/config';
+import { finalRevealedLetters } from '../game/final';
 import type { RankedTeam } from '../game/ranking';
-import type { PlayingState, RoundOverState, Team } from '../game/state';
+import type { FinalResult, FinalState, PlayingState, RoundOverState, Team } from '../game/state';
 import { createElement } from '../shared/dom';
 import { createBoard, type Board } from './board';
 import { createQrCode } from './qr';
-import { TV_TEXTS } from './texts';
-import { createWheel, type Wheel } from './wheel';
+import { prizeLabel, TV_TEXTS } from './texts';
+import { createWheel, envelopeFaces, segmentFaces, type Wheel } from './wheel';
 
 export interface SetupScreen {
   element: HTMLElement;
@@ -57,10 +58,11 @@ export interface GameScreen {
   element: HTMLElement;
   board: Board;
   wheel: Wheel;
+  prizeWheel: Wheel;
   showMessage(text: string): void;
   /** Brief red flash of the whole screen. */
   flash(): void;
-  render(state: PlayingState | RoundOverState): void;
+  render(state: PlayingState | RoundOverState | FinalState): void;
 }
 
 /** Plays a CSS animation again, even if the class is already there. */
@@ -86,7 +88,9 @@ function renderTeams(container: HTMLElement, teams: readonly Team[], active: num
 
 export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
-  const wheel = createWheel(WHEEL_SEGMENTS, onTick);
+  const wheel = createWheel(segmentFaces(WHEEL_SEGMENTS), onTick);
+  const prizeWheel = createWheel(envelopeFaces(FINAL_PRIZES.length), onTick);
+  prizeWheel.element.classList.add('prize-wheel');
   const header = createElement('header', { className: 'game-header' });
   const theme = createElement('div', { className: 'theme-tab' });
   const banner = createElement('div', { className: 'banner' });
@@ -96,19 +100,41 @@ export function createGameScreen(onTick: () => void): GameScreen {
   const element = createElement('section', { className: 'game' }, [
     header,
     createElement('div', { className: 'board-frame' }, [board.element, theme]),
-    createElement('div', { className: 'wheel-slot' }, [wheel.element]),
+    createElement('div', { className: 'wheel-slot' }, [wheel.element, prizeWheel.element]),
     banner,
     teams,
     letters,
     hint,
   ]);
 
-  function render(state: PlayingState | RoundOverState): void {
+  function showPhrase(text: string, revealed: readonly string[]): void {
+    if (board.phrase() !== text) board.setPhrase(text, revealed);
+  }
+
+  function renderFinal(state: FinalState): void {
+    wheel.element.classList.add('is-hidden');
+    prizeWheel.element.classList.remove('is-hidden');
+    header.textContent = TV_TEXTS.finalTitle;
+    theme.textContent = state.final.phrase.theme;
+    showPhrase(state.final.phrase.text, finalRevealedLetters(state));
+    board.element.classList.remove('won');
+    renderTeams(teams, state.teams, state.finalist);
+    const picked = state.final.pickedLetters.join(' ');
+    letters.textContent = `${TV_TEXTS.pickedLetters} : ${picked === '' ? TV_TEXTS.noUsedLetters : picked}`;
+    hint.textContent = state.step.kind === 'pickingLetters' ? TV_TEXTS.finalHint : '';
+  }
+
+  function render(state: PlayingState | RoundOverState | FinalState): void {
+    if (state.phase === 'final') {
+      renderFinal(state);
+      return;
+    }
+    wheel.element.classList.remove('is-hidden');
+    prizeWheel.element.classList.add('is-hidden');
     const { round } = state;
     header.textContent = TV_TEXTS.round(state.roundNumber);
     theme.textContent = round.phrase.theme;
-    if (board.phrase() !== round.phrase.text)
-      board.setPhrase(round.phrase.text, round.guessedLetters);
+    showPhrase(round.phrase.text, round.guessedLetters);
     if (state.phase === 'roundOver') board.revealAll();
     board.element.classList.toggle('won', state.phase === 'roundOver');
     renderTeams(teams, state.teams, state.phase === 'playing' ? round.activeTeam : state.winner);
@@ -121,6 +147,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     element,
     board,
     wheel,
+    prizeWheel,
     showMessage: (text) => {
       banner.textContent = text;
       restartAnimation(banner, 'appear');
@@ -134,19 +161,29 @@ export function createGameScreen(onTick: () => void): GameScreen {
 
 export interface RankingScreen {
   element: HTMLElement;
-  render(teams: readonly Team[], ranking: readonly RankedTeam[]): void;
+  render(teams: readonly Team[], ranking: readonly RankedTeam[], final: FinalResult | null): void;
+}
+
+function finalResultText(teams: readonly Team[], final: FinalResult): string {
+  const name = teams[final.finalist]?.name ?? '';
+  const prize = FINAL_PRIZES[final.prizeIndex];
+  const label = prize === undefined ? '' : prizeLabel(prize);
+  return final.won ? TV_TEXTS.finalWon(name, label) : TV_TEXTS.finalLost(name, label);
 }
 
 export function createRankingScreen(): RankingScreen {
   const list = createElement('ol', { className: 'ranking' });
+  const result = createElement('p', { className: 'final-result' });
   const element = createElement('section', { className: 'final' }, [
     createElement('h1', { text: TV_TEXTS.finalRanking }),
+    result,
     list,
     createElement('p', { className: 'muted', text: TV_TEXTS.newGameOnPhone }),
   ]);
   return {
     element,
-    render: (teams, ranking) => {
+    render: (teams, ranking, final) => {
+      result.textContent = final === null ? '' : finalResultText(teams, final);
       list.replaceChildren(
         ...ranking.map(({ team, rank }) =>
           createElement('li', { className: rank === 1 ? 'winner' : '' }, [

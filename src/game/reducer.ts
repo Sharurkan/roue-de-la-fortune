@@ -1,16 +1,31 @@
 import {
+  normalizeLetter,
+  pickIndex,
+  reject,
+  updateTeam,
+  type GameDeps,
+  type ReduceResult,
+} from './common';
+import {
   CONSONANTS,
   DEFAULT_TEAM_NAME_PREFIX,
   MAX_ANSWER_LENGTH,
   MAX_TEAM_NAME_LENGTH,
   MAX_TEAMS,
   MIN_TEAMS,
+  ROUND_COUNT,
   VOWEL_COST,
   VOWELS,
   WHEEL_SEGMENTS,
 } from './config';
-import type { GameEvent, RejectionReason } from './events';
-import type { Phrase } from './phrases';
+import type { GameEvent } from './events';
+import {
+  pickFinalLetter,
+  prizeWheelStopped,
+  spinPrizeWheel,
+  startFinal,
+  submitFinalAnswer,
+} from './final';
 import {
   activeTeamCanBuyVowel,
   countOccurrences,
@@ -18,18 +33,9 @@ import {
   hasHiddenVowels,
 } from './selectors';
 import type { GameAction, GameState, PlayingState, Round, Team } from './state';
-import { isSameAnswer, normalizeAnswer, normalizeText } from './text';
+import { isSameAnswer, normalizeAnswer } from './text';
 
-export interface GameDeps {
-  /** Returns a number in [0, 1), like Math.random. */
-  random: () => number;
-  phrases: readonly Phrase[];
-}
-
-export interface ReduceResult {
-  state: GameState;
-  events: GameEvent[];
-}
+export type { GameDeps, ReduceResult } from './common';
 
 export function reduce(state: GameState, action: GameAction, deps: GameDeps): ReduceResult {
   switch (action.type) {
@@ -53,21 +59,11 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
       return cancel(state);
     case 'nextRound':
       return nextRound(state, deps);
-    case 'endGame':
-      return endGame(state);
     case 'abandonGame':
       return abandonGame(state);
     case 'newGame':
       return newGame(state);
   }
-}
-
-function reject(state: GameState, reason: RejectionReason): ReduceResult {
-  return { state, events: [{ type: 'actionRejected', reason }] };
-}
-
-function pickIndex(random: () => number, length: number): number {
-  return Math.min(Math.floor(random() * length), length - 1);
 }
 
 function teamName(input: string, index: number): string {
@@ -119,6 +115,7 @@ function isChoosing(state: GameState): state is PlayingState & { step: { kind: '
 }
 
 function spin(state: GameState, deps: GameDeps): ReduceResult {
+  if (state.phase === 'final') return spinPrizeWheel(state, deps);
   if (!isChoosing(state)) return reject(state, 'wrongPhase');
   if (!hasHiddenConsonants(state.round)) return reject(state, 'noConsonantsLeft');
   const segmentIndex = pickIndex(deps.random, WHEEL_SEGMENTS.length);
@@ -129,6 +126,7 @@ function spin(state: GameState, deps: GameDeps): ReduceResult {
 }
 
 function spinEnded(state: GameState): ReduceResult {
+  if (state.phase === 'final') return prizeWheelStopped(state);
   if (state.phase !== 'playing' || state.step.kind !== 'spinning') {
     return reject(state, 'wrongPhase');
   }
@@ -151,12 +149,8 @@ function spinEnded(state: GameState): ReduceResult {
   }
 }
 
-function normalizeLetter(input: string, allowed: string): string | null {
-  const letter = normalizeText(input.trim());
-  return letter.length === 1 && allowed.includes(letter) ? letter : null;
-}
-
 function guessConsonant(state: GameState, input: string): ReduceResult {
+  if (state.phase === 'final') return pickFinalLetter(state, input, 'consonant');
   if (state.phase !== 'playing' || state.step.kind !== 'guessingConsonant') {
     return reject(state, 'wrongPhase');
   }
@@ -174,6 +168,7 @@ function buyVowel(state: GameState): ReduceResult {
 }
 
 function guessVowel(state: GameState, input: string): ReduceResult {
+  if (state.phase === 'final') return pickFinalLetter(state, input, 'vowel');
   if (state.phase !== 'playing' || state.step.kind !== 'guessingVowel') {
     return reject(state, 'wrongPhase');
   }
@@ -234,6 +229,7 @@ function startSolving(state: GameState): ReduceResult {
 }
 
 function submitSolution(state: GameState, answer: string): ReduceResult {
+  if (state.phase === 'final') return submitFinalAnswer(state, answer);
   if (state.phase !== 'playing' || state.step.kind !== 'solving') {
     return reject(state, 'wrongPhase');
   }
@@ -273,8 +269,10 @@ function cancel(state: GameState): ReduceResult {
   return { state: { ...state, step: { kind: 'choosing' } }, events: [] };
 }
 
+/** After the last regular round, "next" leads to the final. */
 function nextRound(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
+  if (state.roundNumber >= ROUND_COUNT) return startFinal(state, deps);
   const startingTeam = (state.round.startingTeam + 1) % state.teams.length;
   return startRound(
     state.teams,
@@ -285,18 +283,11 @@ function nextRound(state: GameState, deps: GameDeps): ReduceResult {
   );
 }
 
-function endGame(state: GameState): ReduceResult {
-  if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
-  return { state: { phase: 'gameOver', teams: state.teams }, events: [{ type: 'gameOver' }] };
-}
-
 /** Stops a game at any time. Round scores of an unfinished round are lost. */
 function abandonGame(state: GameState): ReduceResult {
-  if (state.phase !== 'playing' && state.phase !== 'roundOver') {
-    return reject(state, 'wrongPhase');
-  }
+  if (state.phase === 'setup' || state.phase === 'gameOver') return reject(state, 'wrongPhase');
   const teams = state.teams.map((team) => ({ ...team, roundScore: 0 }));
-  return { state: { phase: 'gameOver', teams }, events: [{ type: 'gameOver' }] };
+  return { state: { phase: 'gameOver', teams, final: null }, events: [{ type: 'gameOver' }] };
 }
 
 function newGame(state: GameState): ReduceResult {
@@ -310,8 +301,4 @@ function passTurn(state: PlayingState, events: GameEvent[]): ReduceResult {
     state: { ...state, round: { ...state.round, activeTeam: team }, step: { kind: 'choosing' } },
     events: [...events, { type: 'turnPassed', team }],
   };
-}
-
-function updateTeam(teams: Team[], index: number, update: (team: Team) => Team): Team[] {
-  return teams.map((team, i) => (i === index ? update(team) : team));
 }

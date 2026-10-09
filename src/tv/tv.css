@@ -456,3 +456,27 @@
 .wheel-pointer.flick {
   animation: flick 0.12s ease-out;
 }
+
+.wheel-envelope rect,
+.wheel-envelope path {
+  fill: #fff8e7;
+  stroke: #4a3826;
+  stroke-width: 1.6px;
+  stroke-linejoin: round;
+}
+
+.wheel-envelope path {
+  fill: none;
+}
+
+.final-result {
+  margin-bottom: 3vh;
+  font-family: var(--font-title);
+  font-size: 4.5vh;
+  text-align: center;
+}
+
+/* SVG elements have no "hidden" property: the TV swaps its two wheels with a class. */
+.wheel.is-hidden {
+  display: none;
+}

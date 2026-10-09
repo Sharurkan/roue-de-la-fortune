@@ -10,6 +10,7 @@ const DEPS: GameDeps = {
   phrases: [
     PHRASES.find((p) => p.text === 'Le Roi lion') ?? { theme: 'Film', text: 'Le Roi lion' },
   ],
+  finalPhrases: [{ theme: 'Objet', text: 'Une tondeuse' }],
 };
 
 function screenAfter(actions: GameAction[]) {
@@ -56,17 +57,65 @@ describe('describeScreen', () => {
       { type: 'startSolving' },
       { type: 'submitSolution', answer: 'le roi lion' },
     ];
-    expect(screenAfter(actions)).toEqual({ kind: 'roundOver', winner: 0 });
+    expect(screenAfter(actions)).toEqual({ kind: 'roundOver', winner: 0, isLastRound: false });
   });
 
   it('shows the end of the game', () => {
-    const actions: GameAction[] = [
-      START,
+    expect(screenAfter([START, { type: 'abandonGame' }])).toEqual({ kind: 'gameOver' });
+  });
+
+  describe('final round', () => {
+    const winRound: GameAction[] = [
       { type: 'startSolving' },
       { type: 'submitSolution', answer: 'le roi lion' },
-      { type: 'endGame' },
     ];
-    expect(screenAfter(actions)).toEqual({ kind: 'gameOver' });
+    const lastRoundOver: GameAction[] = [
+      START,
+      ...winRound,
+      { type: 'nextRound' },
+      ...winRound,
+      { type: 'nextRound' },
+      ...winRound,
+      { type: 'nextRound' },
+      ...winRound,
+    ];
+    const toPicking: GameAction[] = [
+      ...lastRoundOver,
+      { type: 'nextRound' },
+      { type: 'spin' },
+      { type: 'spinEnded' },
+    ];
+
+    it('offers the final after the 4th round', () => {
+      expect(screenAfter(lastRoundOver)).toMatchObject({ kind: 'roundOver', isLastRound: true });
+    });
+
+    it('shows the envelope wheel, then locks it while it spins', () => {
+      expect(screenAfter([...lastRoundOver, { type: 'nextRound' }])).toEqual({
+        kind: 'prizeWheel',
+      });
+      expect(screenAfter([...lastRoundOver, { type: 'nextRound' }, { type: 'spin' }])).toEqual({
+        kind: 'prizeSpinning',
+      });
+    });
+
+    it('counts the letters left to pick', () => {
+      expect(screenAfter([...toPicking, { type: 'guessVowel', letter: 'O' }])).toEqual({
+        kind: 'finalPicking',
+        consonantsLeft: 3,
+        vowelsLeft: 0,
+      });
+    });
+
+    it('asks for the answer once every letter is picked', () => {
+      const picks: GameAction[] = [
+        { type: 'guessConsonant', letter: 'D' },
+        { type: 'guessConsonant', letter: 'B' },
+        { type: 'guessConsonant', letter: 'C' },
+        { type: 'guessVowel', letter: 'O' },
+      ];
+      expect(screenAfter([...toPicking, ...picks])).toEqual({ kind: 'finalSolving' });
+    });
   });
 });
 

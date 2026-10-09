@@ -11,7 +11,7 @@ const SEGMENT = { value300: 0, value500: 1, bankrupt: 2, pass: 7, value1000: 17 
 
 function deps(randoms: number[] = [], phrases: readonly Phrase[] = [PHRASE]): GameDeps {
   let call = 0;
-  return { random: () => randoms[call++] ?? 0, phrases };
+  return { random: () => randoms[call++] ?? 0, phrases, finalPhrases: phrases };
 }
 
 function randomFor(segmentIndex: number): number {
@@ -359,15 +359,19 @@ describe('rounds and game end', () => {
     expect(phrases.map((p) => p.text)).toContain(seen[2]);
   });
 
-  it('ends the game from the end of a round, then starts a new one', () => {
-    const over = reduce(winRound(newGame()).state, { type: 'endGame' }, deps());
-    expect(over.state.phase).toBe('gameOver');
-    expect(over.events).toEqual([{ type: 'gameOver' }]);
-    expect(reduce(over.state, { type: 'newGame' }, deps()).state).toEqual({ phase: 'setup' });
+  it('plays 4 regular rounds, then the next step is the final', () => {
+    let state: GameState = newGame(2, phrases);
+    for (let round = 1; round < 4; round++) {
+      state = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases)).state;
+    }
+    expect(playing(state).roundNumber).toBe(4);
+    const final = reduce(winRound(state).state, { type: 'nextRound' }, deps([], phrases));
+    expect(final.state.phase).toBe('final');
   });
 
-  it('refuses to end the game during a round', () => {
-    expect(reduce(newGame(), { type: 'endGame' }, deps()).events).toEqual(rejection('wrongPhase'));
+  it('starts a new game after the end of the game', () => {
+    const over = reduce(newGame(), { type: 'abandonGame' }, deps()).state;
+    expect(reduce(over, { type: 'newGame' }, deps()).state).toEqual({ phase: 'setup' });
   });
 
   it('refuses a new game before the end of the game', () => {
@@ -382,6 +386,7 @@ describe('abandon', () => {
     const result = reduce(withTotal, { type: 'abandonGame' }, deps());
     expect(result.state).toEqual({
       phase: 'gameOver',
+      final: null,
       teams: withTotal.teams.map((t) => ({ ...t, roundScore: 0 })),
     });
     expect(result.events).toEqual([{ type: 'gameOver' }]);

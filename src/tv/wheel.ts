@@ -14,6 +14,7 @@ const TRIM = {
 const RIM_RADIUS = 100;
 const RADIUS = 94;
 const PEG_RADIUS = 89;
+const BULB_COUNT = 24;
 const SPIN_DURATION_MS = 5000;
 const FULL_TURNS = 4;
 /** Keeps the pointer away from segment borders, so the result is never ambiguous. */
@@ -32,26 +33,57 @@ const VALUE_COLORS = [
 const DIGIT_STEP = 12.5;
 const FIRST_DIGIT_RADIUS = 82;
 
+/** What one segment of a wheel looks like. */
+export interface WheelFace {
+  fill: string;
+  ink: string;
+  label: { kind: 'digits'; text: string } | { kind: 'word'; text: string } | { kind: 'envelope' };
+}
+
 export interface Wheel {
   element: SVGSVGElement;
   /** Resolves when the wheel has stopped on the segment. */
   spin(segmentIndex: number): Promise<void>;
 }
 
+/** Faces of the main wheel. */
+export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
+  return segments.map((segment, index) => {
+    switch (segment.kind) {
+      case 'bankrupt':
+        return {
+          fill: '#15151a',
+          ink: '#ffffff',
+          label: { kind: 'word', text: TV_TEXTS.wheel.bankrupt },
+        };
+      case 'pass':
+        return {
+          fill: '#f7f4ea',
+          ink: '#15151a',
+          label: { kind: 'word', text: TV_TEXTS.wheel.pass },
+        };
+      case 'value':
+        return {
+          fill: VALUE_COLORS[index % VALUE_COLORS.length] ?? '#2e86de',
+          ink: '#ffffff',
+          label: { kind: 'digits', text: String(segment.amount) },
+        };
+    }
+  });
+}
+
+/** Faces of the final wheel: identical envelopes, so nobody knows what is inside. */
+export function envelopeFaces(count: number): WheelFace[] {
+  return Array.from({ length: count }, (_, index) => ({
+    fill: VALUE_COLORS[(index * 3) % VALUE_COLORS.length] ?? '#2e86de',
+    ink: '#ffffff',
+    label: { kind: 'envelope' },
+  }));
+}
+
 function pointAt(angle: number, radius: number): string {
   const radians = (angle * Math.PI) / 180;
   return `${String(radius * Math.sin(radians))} ${String(-radius * Math.cos(radians))}`;
-}
-
-function segmentStyle(segment: WheelSegment, index: number): { fill: string; text: string } {
-  switch (segment.kind) {
-    case 'bankrupt':
-      return { fill: '#15151a', text: '#ffffff' };
-    case 'pass':
-      return { fill: '#f7f4ea', text: '#15151a' };
-    case 'value':
-      return { fill: VALUE_COLORS[index % VALUE_COLORS.length] ?? '#1f7ae0', text: '#ffffff' };
-  }
 }
 
 /** Values are written like on TV: one digit under the other, from the rim inwards. */
@@ -83,37 +115,53 @@ function radialLabel(text: string, color: string): SVGTextElement {
   return label;
 }
 
-function drawSegment(segment: WheelSegment, index: number, angle: number): SVGGElement {
-  const style = segmentStyle(segment, index);
+function envelopeIcon(): SVGGElement {
+  return createSvgElement('g', { transform: 'translate(0 -60)', class: 'wheel-envelope' }, [
+    createSvgElement('rect', { x: -15, y: -10, width: 30, height: 20, rx: 2 }),
+    createSvgElement('path', { d: 'M -15 -9 L 0 3 L 15 -9', fill: 'none' }),
+  ]);
+}
+
+function faceLabel(face: WheelFace): SVGElement[] {
+  switch (face.label.kind) {
+    case 'digits':
+      return stackedLabel(face.label.text, face.ink);
+    case 'word':
+      return [radialLabel(face.label.text, face.ink)];
+    case 'envelope':
+      return [envelopeIcon()];
+  }
+}
+
+function drawSegment(face: WheelFace, index: number, angle: number, trim: string): SVGGElement {
   const start = (index - 0.5) * angle;
   const end = (index + 0.5) * angle;
   const wedge = createSvgElement('path', {
     d: `M 0 0 L ${pointAt(start, RADIUS)} A ${String(RADIUS)} ${String(RADIUS)} 0 0 1 ${pointAt(end, RADIUS)} Z`,
-    fill: style.fill,
+    fill: face.fill,
   });
-  const labels =
-    segment.kind === 'value'
-      ? stackedLabel(String(segment.amount), style.text)
-      : [
-          radialLabel(
-            segment.kind === 'bankrupt' ? TV_TEXTS.wheel.bankrupt : TV_TEXTS.wheel.pass,
-            style.text,
-          ),
-        ];
   const peg = createSvgElement('circle', {
     cx: PEG_RADIUS * Math.sin((start * Math.PI) / 180),
     cy: -PEG_RADIUS * Math.cos((start * Math.PI) / 180),
     r: 2.2,
-    fill: 'url(#wheel-trim)',
+    fill: trim,
   });
   return createSvgElement('g', {}, [
     wedge,
-    createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, labels),
+    createSvgElement('g', { transform: `rotate(${String(index * angle)})` }, faceLabel(face)),
     peg,
   ]);
 }
 
-function drawDefs(): SVGDefsElement {
+let wheelCount = 0;
+
+/** Gradient ids must be unique in the page, and the TV shows two wheels. */
+function gradientIds(): { trim: string; shade: string } {
+  wheelCount += 1;
+  return { trim: `wheel-trim-${String(wheelCount)}`, shade: `wheel-shade-${String(wheelCount)}` };
+}
+
+function drawDefs(ids: { trim: string; shade: string }): SVGDefsElement {
   const stop = (offset: string, color: string, opacity = 1) =>
     // CSS variables only work in style, not in SVG presentation attributes.
     createSvgElement('stop', {
@@ -121,13 +169,13 @@ function drawDefs(): SVGDefsElement {
       style: `stop-color: ${color}; stop-opacity: ${String(opacity)}`,
     });
   return createSvgElement('defs', {}, [
-    createSvgElement('linearGradient', { id: 'wheel-trim', x1: 0, y1: 0, x2: 1, y2: 1 }, [
+    createSvgElement('linearGradient', { id: ids.trim, x1: 0, y1: 0, x2: 1, y2: 1 }, [
       stop('0%', TRIM.light),
       stop('45%', TRIM.main),
       stop('100%', TRIM.dark),
     ]),
     // One light-to-shadow overlay over every segment gives the wheel its relief.
-    createSvgElement('radialGradient', { id: 'wheel-shade', cx: '45%', cy: '40%', r: '60%' }, [
+    createSvgElement('radialGradient', { id: ids.shade, cx: '45%', cy: '40%', r: '60%' }, [
       stop('0%', '#ffffff', 0.22),
       stop('55%', '#ffffff', 0),
       stop('100%', '#000000', 0.18),
@@ -135,11 +183,12 @@ function drawDefs(): SVGDefsElement {
   ]);
 }
 
-function drawBulbs(count: number, angle: number): SVGGElement {
+function drawBulbs(): SVGGElement {
+  const angle = segmentAngle(BULB_COUNT);
   return createSvgElement(
     'g',
     { class: 'wheel-bulbs' },
-    Array.from({ length: count }, (_, i) =>
+    Array.from({ length: BULB_COUNT }, (_, i) =>
       createSvgElement('circle', {
         cx: RIM_RADIUS * Math.sin((i * angle * Math.PI) / 180),
         cy: -RIM_RADIUS * Math.cos((i * angle * Math.PI) / 180),
@@ -150,7 +199,7 @@ function drawBulbs(count: number, angle: number): SVGGElement {
   );
 }
 
-function drawPointer(): SVGGElement {
+function drawPointer(trim: string): SVGGElement {
   const shape = 'M 0 -88 C -9 -98 -12 -106 -12 -112 A 12 12 0 0 1 12 -112 C 12 -106 9 -98 0 -88 Z';
   return createSvgElement('g', { class: 'wheel-pointer' }, [
     createSvgElement('path', {
@@ -161,7 +210,7 @@ function drawPointer(): SVGGElement {
     }),
     createSvgElement('path', {
       d: shape,
-      fill: 'url(#wheel-trim)',
+      fill: trim,
       style: `stroke: ${TRIM.deep}`,
       'stroke-width': 1.2,
     }),
@@ -175,46 +224,35 @@ function restartAnimation(element: Element, className: string): void {
   element.classList.add(className);
 }
 
-export function createWheel(segments: readonly WheelSegment[], onTick: () => void): Wheel {
-  const angle = segmentAngle(segments.length);
+export function createWheel(faces: readonly WheelFace[], onTick: () => void): Wheel {
+  const angle = segmentAngle(faces.length);
+  const ids = gradientIds();
+  const trim = `url(#${ids.trim})`;
   const rotor = createSvgElement('g', {}, [
-    ...segments.map((segment, index) => drawSegment(segment, index, angle)),
-    createSvgElement('circle', { r: RADIUS, fill: 'url(#wheel-shade)' }),
+    ...faces.map((face, index) => drawSegment(face, index, angle, trim)),
+    createSvgElement('circle', { r: RADIUS, fill: `url(#${ids.shade})` }),
   ]);
-  const pointer = drawPointer();
-  const element = createSvgElement(
-    'svg',
-    {
-      viewBox: '-112 -126 224 240',
-      class: 'wheel',
-    },
-    [
-      drawDefs(),
-      createSvgElement('circle', {
-        cx: 3,
-        cy: 6,
-        r: RIM_RADIUS + 6,
-        fill: '#000000',
-        opacity: 0.35,
-      }),
-      createSvgElement('circle', { r: RIM_RADIUS + 4, fill: 'url(#wheel-trim)' }),
-      createSvgElement('circle', { r: RIM_RADIUS - 2, style: `fill: ${TRIM.shadow}` }),
-      rotor,
-      drawBulbs(segments.length, angle),
-      createSvgElement('circle', {
-        r: 17,
-        fill: 'url(#wheel-trim)',
-        style: `stroke: ${TRIM.deep}`,
-        'stroke-width': 1.5,
-      }),
-      createSvgElement('circle', {
-        r: 9,
-        style: `fill: ${TRIM.main}; stroke: ${TRIM.light}`,
-        'stroke-width': 1,
-      }),
-      pointer,
-    ],
-  );
+  const pointer = drawPointer(trim);
+  const element = createSvgElement('svg', { viewBox: '-112 -126 224 240', class: 'wheel' }, [
+    drawDefs(ids),
+    createSvgElement('circle', { cx: 3, cy: 6, r: RIM_RADIUS + 6, fill: '#000000', opacity: 0.35 }),
+    createSvgElement('circle', { r: RIM_RADIUS + 4, fill: trim }),
+    createSvgElement('circle', { r: RIM_RADIUS - 2, style: `fill: ${TRIM.shadow}` }),
+    rotor,
+    drawBulbs(),
+    createSvgElement('circle', {
+      r: 17,
+      fill: trim,
+      style: `stroke: ${TRIM.deep}`,
+      'stroke-width': 1.5,
+    }),
+    createSvgElement('circle', {
+      r: 9,
+      style: `fill: ${TRIM.main}; stroke: ${TRIM.light}`,
+      'stroke-width': 1,
+    }),
+    pointer,
+  ]);
   let rotation = 0;
 
   function show(value: number): void {
@@ -230,7 +268,7 @@ export function createWheel(segments: readonly WheelSegment[], onTick: () => voi
     const from = rotation;
     const to = targetRotation(from, {
       segmentIndex,
-      segmentCount: segments.length,
+      segmentCount: faces.length,
       fullTurns: FULL_TURNS,
       offset: (Math.random() * 2 - 1) * MAX_OFFSET,
     });
@@ -251,7 +289,7 @@ export function createWheel(segments: readonly WheelSegment[], onTick: () => voi
         if (done) return;
         const progress = (now - startedAt) / SPIN_DURATION_MS;
         const current = from + (to - from) * easeOutCubic(progress);
-        if (bordersCrossed(previous, current, segments.length) > 0) tick();
+        if (bordersCrossed(previous, current, faces.length) > 0) tick();
         previous = current;
         show(current);
         if (progress >= 1) finish();

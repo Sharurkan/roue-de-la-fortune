@@ -79,6 +79,10 @@ function headerText(view: PublicView): string {
       return texts.setupTitle;
     case 'gameOver':
       return texts.finalRanking;
+    case 'final': {
+      const finalist = view.activeTeam === null ? undefined : view.teams[view.activeTeam];
+      return texts.final(finalist?.name ?? '');
+    }
     case 'playing':
     case 'roundOver': {
       const team = view.activeTeam === null ? undefined : view.teams[view.activeTeam];

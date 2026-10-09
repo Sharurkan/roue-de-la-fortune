@@ -1,4 +1,14 @@
-export const THEMES = ['Expression', 'Proverbe', 'Film', 'Cuisine', 'Lieu', 'Objet'] as const;
+export const THEMES = [
+  'Expression',
+  'Proverbe',
+  'Film',
+  'Cuisine',
+  'Lieu',
+  'Objet',
+  'Chanson',
+  'Animal',
+  'Personnage',
+] as const;
 
 export type Theme = (typeof THEMES)[number];
 
@@ -49,4 +59,38 @@ export const PHRASES: readonly Phrase[] = [
   { theme: 'Objet', text: 'Une brosse à dents' },
   { theme: 'Objet', text: 'Un aspirateur' },
   { theme: 'Objet', text: 'Une table de chevet' },
+];
+
+/** Final round answers: short names of things, places, songs… Never expressions. */
+export const FINAL_PHRASES: readonly Phrase[] = [
+  { theme: 'Objet', text: 'Une tondeuse' },
+  { theme: 'Objet', text: 'Une brouette' },
+  { theme: 'Objet', text: 'Une boussole' },
+  { theme: 'Objet', text: 'Un arrosoir' },
+  { theme: 'Objet', text: 'Une trottinette' },
+  { theme: 'Objet', text: 'Un sablier' },
+  { theme: 'Objet', text: 'Une lampe de poche' },
+  { theme: 'Objet', text: 'Un grille-pain' },
+  { theme: 'Lieu', text: 'Le mont Blanc' },
+  { theme: 'Lieu', text: 'La baie de Somme' },
+  { theme: 'Lieu', text: 'Les gorges du Verdon' },
+  { theme: 'Lieu', text: 'La dune du Pilat' },
+  { theme: 'Lieu', text: 'Le pont du Gard' },
+  { theme: 'Lieu', text: "Le lac d'Annecy" },
+  { theme: 'Chanson', text: 'Les lacs du Connemara' },
+  { theme: 'Chanson', text: 'La Bohème' },
+  { theme: 'Chanson', text: 'La vie en rose' },
+  { theme: 'Chanson', text: 'Alexandrie Alexandra' },
+  { theme: 'Chanson', text: 'Le lion est mort ce soir' },
+  { theme: 'Film', text: 'Le Grand Bleu' },
+  { theme: 'Film', text: 'Les Bronzés' },
+  { theme: 'Film', text: 'La Grande Vadrouille' },
+  { theme: 'Film', text: 'Le Dîner de cons' },
+  { theme: 'Animal', text: 'Un hérisson' },
+  { theme: 'Animal', text: 'Un flamant rose' },
+  { theme: 'Animal', text: 'Une coccinelle' },
+  { theme: 'Animal', text: 'Un ours polaire' },
+  { theme: 'Personnage', text: 'Astérix' },
+  { theme: 'Personnage', text: 'Le Petit Prince' },
+  { theme: 'Personnage', text: 'Cendrillon' },
 ];

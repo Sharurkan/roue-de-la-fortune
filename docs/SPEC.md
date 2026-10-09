@@ -77,11 +77,21 @@ Fin de manche
 - Les scores de manche repartent à 0.
 - La manche suivante commence avec l'équipe suivante (rotation).
 
-Fin de partie
+Déroulé d'une partie
 
-- Quand l'utilisateur le décide, depuis le téléphone, en fin de manche.
+- 4 manches normales, puis la finale.
 - « Abandonner la partie » sur le téléphone, à tout moment, avec confirmation : classement direct, les scores de la manche en cours sont perdus.
-- Classement final sur la TV. Bouton « Nouvelle partie » sur le téléphone.
+- Classement final sur la TV, avec le résultat de la finale. Bouton « Nouvelle partie » sur le téléphone.
+
+Finale
+
+- Finaliste : l'équipe au plus gros total après 4 manches. Égalité : l'équipe ex æquo qui a gagné la 4e manche, sinon la première dans l'ordre.
+- Il tourne une petite roue de 8 enveloppes : 500 €, 1 000 €, 1 500 €, 2 000 €, 3 000 €, 5 000 €, Voyage, Bisou (dans `game/config.ts`). Le contenu reste caché jusqu'à la fin.
+- Énigme courte (objet, lieu, chanson, film, animal, personnage), tirée d'une liste à part : jamais d'expression ni de proverbe.
+- R S T L N E sont révélées d'office (case bleue, puis lettre).
+- Le finaliste choisit 3 consonnes et 1 voyelle, gratuitement. Elles sont révélées ensemble une fois toutes choisies.
+- Une seule tentative de réponse, sans minuteur.
+- Gagné : une somme s'ajoute au total, un cadeau (Voyage, Bisou) est simplement gagné. Gagné ou perdu, l'enveloppe est dévoilée.
 
 Phrases
 
@@ -109,15 +119,17 @@ Phrases
 - Tour : boutons « Tourner la roue », « Acheter une voyelle (250 €) », « Proposer la solution ».
 - Clavier de consonnes ou de voyelles selon l'étape, lettres utilisées grisées.
 - Saisie de la solution avec « Valider » et « Annuler ».
-- Fin de manche : « Manche suivante » ou « Terminer la partie ».
+- Fin de manche : « Manche suivante » (« Passer à la finale » après la 4e manche).
+- Finale : « Tourner la roue des enveloppes », clavier de 3 consonnes et 1 voyelle, une seule réponse.
 - Boutons grisés pendant que la roue tourne.
 - Gros boutons, utilisable d'une main.
 
 ## Protocole
 
-- Téléphone → TV : `{ v: 1, type: "action", action }`.
-- TV → téléphone : `{ v: 1, type: "state", view }`. La `view` ne contient jamais la solution.
-- Dans les deux sens : `{ v: 1, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.
+- Version actuelle du protocole : 2.
+- Téléphone → TV : `{ v, type: "action", action }`.
+- TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
+- Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.
 - Tous les messages sont validés avec zod à la réception.
 - Version différente : message ignoré et erreur affichée (« Mets à jour la page »).
 
@@ -125,7 +137,7 @@ Phrases
 
 - Plusieurs téléphones en même temps
 - Phrases personnalisées
-- Manche « super cagnotte », cases spéciales avancées, minuteur
+- Cases spéciales avancées, minuteur
 - Mode hors ligne sans serveur PeerJS
 
 ## Phases

@@ -1,3 +1,4 @@
+import type { Prize } from '../game/config';
 import type { GameEvent, RejectionReason } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -34,8 +35,20 @@ export const PHONE_TEXTS = {
   cancel: 'Annuler',
   roundWinner: (name: string) => `${name} gagne la manche !`,
   nextRound: 'Manche suivante',
-  endGame: 'Terminer la partie',
-  confirmEndGame: 'Confirmer : terminer la partie',
+  toFinal: 'Passer à la finale',
+  final: (name: string) => `Finale · ${name}`,
+  spinPrizeWheel: 'Tourner la roue des enveloppes',
+  prizeSpinning: 'La roue des enveloppes tourne…',
+  finalPicks: (consonants: number, vowels: number) => {
+    const parts = [
+      consonants > 0 ? `${String(consonants)} consonne${consonants > 1 ? 's' : ''}` : '',
+      vowels > 0 ? `${String(vowels)} voyelle` : '',
+    ].filter((part) => part !== '');
+    return `Choisis encore ${parts.join(' et ')}`;
+  },
+  finalAnswer: 'Une seule chance : ta réponse',
+  finalWon: (name: string, prize: string) => `${name} gagne l'enveloppe : ${prize} !`,
+  finalLost: (name: string, prize: string) => `Perdu ! L'enveloppe de ${name} contenait : ${prize}`,
   abandonGame: 'Abandonner la partie',
   confirmAbandonGame: 'Confirmer : abandonner la partie',
   finalRanking: 'Classement final',
@@ -73,6 +86,7 @@ const REJECTIONS: Record<RejectionReason, string> = {
   noConsonantsLeft: "Il n'y a plus de consonnes",
   noVowelsLeft: "Il n'y a plus de voyelles",
   invalidAnswer: 'Réponse vide ou trop longue',
+  noPicksLeft: 'Tu as déjà choisi toutes les lettres de ce type',
 };
 
 function eventMessage(event: GameEvent, teamName: (team: number) => string): string | null {
@@ -99,9 +113,21 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
       return `${teamName(event.team)} gagne ${euros(event.amount)}`;
     case 'actionRejected':
       return REJECTIONS[event.reason];
+    case 'finalStarted':
+      return `${teamName(event.finalist)} va en finale !`;
+    case 'finalLettersGiven':
+      return `${event.letters.join(' ')} offertes`;
+    case 'finalLetterPicked':
+      return `${event.letter} choisie`;
+    case 'finalLettersRevealed':
+      return `${event.letters.join(' ')} révélées`;
+    case 'finalLost':
+      return 'Mauvaise réponse';
     case 'roundStarted':
     case 'wheelSpun':
     case 'vowelBought':
+    case 'prizeWheelSpun':
+    case 'finalWon':
     case 'gameOver':
       return null;
   }
@@ -122,4 +148,8 @@ export function messageFor(
     .filter((text): text is string => text !== null);
   if (texts.length === 0) return null;
   return { text: texts.join(' · '), isError: events.some((e) => e.type === 'actionRejected') };
+}
+
+export function prizeLabel(prize: Prize): string {
+  return prize.kind === 'money' ? euros(prize.amount) : prize.label;
 }

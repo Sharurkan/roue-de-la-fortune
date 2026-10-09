@@ -2,7 +2,8 @@ import * as z from 'zod/mini';
 import { phoneActionSchema, type PhoneAction } from './actions';
 import { publicViewSchema, type PublicView } from './view';
 
-export const PROTOCOL_VERSION = 1;
+/** Bumped for the final round: phones and TVs must run the same version. */
+export const PROTOCOL_VERSION = 2;
 
 const version = z.literal(PROTOCOL_VERSION);
 const heartbeatSchema = z.object({ v: version, type: z.literal('heartbeat') });

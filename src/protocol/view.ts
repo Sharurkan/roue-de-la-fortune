@@ -1,9 +1,23 @@
 import * as z from 'zod/mini';
-import { MAX_TEAM_NAME_LENGTH, MAX_TEAMS } from '../game/config';
+import {
+  FINAL_GIVEN_LETTERS,
+  FINAL_PRIZES,
+  MAX_TEAM_NAME_LENGTH,
+  MAX_TEAMS,
+  type Prize,
+} from '../game/config';
 import type { GameEvent } from '../game/events';
+import { finalPicksLeft } from '../game/final';
 import { rankTeams } from '../game/ranking';
 import { activeTeamCanBuyVowel, hasHiddenConsonants, hasHiddenVowels } from '../game/selectors';
-import type { GameState, PlayingState, RoundOverState, Team } from '../game/state';
+import type {
+  FinalState,
+  GameOverState,
+  GameState,
+  PlayingState,
+  RoundOverState,
+  Team,
+} from '../game/state';
 
 const MAX_EVENTS = 20;
 const MAX_LETTERS = 26;
@@ -11,6 +25,7 @@ const MAX_LETTERS = 26;
 const index = z.int().check(z.minimum(0));
 const amount = z.int();
 const letter = z.string().check(z.length(1));
+const letters = z.array(letter).check(z.maxLength(MAX_LETTERS));
 
 const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('roundStarted'), roundNumber: index }),
@@ -25,6 +40,18 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('noMoreVowels') }),
   z.object({ type: z.literal('wrongSolution'), answer: z.string() }),
   z.object({ type: z.literal('roundWon'), team: index, amount }),
+  z.object({ type: z.literal('finalStarted'), finalist: index }),
+  z.object({ type: z.literal('prizeWheelSpun'), prizeIndex: index }),
+  z.object({ type: z.literal('finalLettersGiven'), letters }),
+  z.object({ type: z.literal('finalLetterPicked'), letter }),
+  z.object({ type: z.literal('finalLettersRevealed'), letters }),
+  z.object({ type: z.literal('finalWon'), finalist: index, prizeIndex: index }),
+  z.object({
+    type: z.literal('finalLost'),
+    finalist: index,
+    prizeIndex: index,
+    answer: z.string(),
+  }),
   z.object({ type: z.literal('gameOver') }),
   z.object({
     type: z.literal('actionRejected'),
@@ -37,13 +64,22 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
       'noConsonantsLeft',
       'noVowelsLeft',
       'invalidAnswer',
+      'noPicksLeft',
     ]),
   }),
 ]);
 
-/** What the phone may know about the game. Never the phrase nor its theme. */
+const prizeSchema: z.ZodMiniType<Prize> = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('money'), amount }),
+  z.object({ kind: z.literal('gift'), label: z.string().check(z.maxLength(30)) }),
+]);
+
+/**
+ * What the phone may know about the game. Never the phrase nor its theme,
+ * and the final envelope only once the final is over.
+ */
 export const publicViewSchema = z.object({
-  phase: z.enum(['setup', 'playing', 'roundOver', 'gameOver']),
+  phase: z.enum(['setup', 'playing', 'roundOver', 'final', 'gameOver']),
   roundNumber: index,
   teams: z
     .array(
@@ -56,10 +92,19 @@ export const publicViewSchema = z.object({
     .check(z.maxLength(MAX_TEAMS)),
   activeTeam: z.nullable(index),
   step: z.nullable(
-    z.enum(['choosing', 'spinning', 'guessingConsonant', 'guessingVowel', 'solving']),
+    z.enum([
+      'choosing',
+      'spinning',
+      'guessingConsonant',
+      'guessingVowel',
+      'solving',
+      'prizeWheel',
+      'prizeSpinning',
+      'pickingLetters',
+    ]),
   ),
   consonantValue: z.nullable(amount),
-  guessedLetters: z.array(letter).check(z.maxLength(MAX_LETTERS)),
+  guessedLetters: letters,
   canSpin: z.boolean(),
   canBuyVowel: z.boolean(),
   noMoreConsonants: z.boolean(),
@@ -68,6 +113,9 @@ export const publicViewSchema = z.object({
   ranking: z
     .array(z.object({ team: index, rank: z.int().check(z.minimum(1)) }))
     .check(z.maxLength(MAX_TEAMS)),
+  /** Final round: letters the finalist may still pick. */
+  finalPicks: z.nullable(z.object({ consonants: index, vowels: index })),
+  finalResult: z.nullable(z.object({ finalist: index, won: z.boolean(), prize: prizeSchema })),
   lastEvents: z.array(gameEventSchema).check(z.maxLength(MAX_EVENTS)),
 });
 
@@ -87,6 +135,8 @@ const EMPTY_VIEW: PublicView = {
   noMoreVowels: false,
   winner: null,
   ranking: [],
+  finalPicks: null,
+  finalResult: null,
   lastEvents: [],
 };
 
@@ -118,8 +168,37 @@ function playingView(state: PlayingState): PublicView {
   };
 }
 
+function finalView(state: FinalState): PublicView {
+  const given = state.step.kind === 'prizeWheel' || state.step.kind === 'prizeSpinning';
+  return {
+    ...EMPTY_VIEW,
+    phase: 'final',
+    teams: publicTeams(state.teams),
+    activeTeam: state.finalist,
+    step: state.step.kind,
+    guessedLetters: given ? [] : [...Array.from(FINAL_GIVEN_LETTERS), ...state.final.pickedLetters],
+    canSpin: state.step.kind === 'prizeWheel',
+    finalPicks: state.step.kind === 'pickingLetters' ? finalPicksLeft(state) : null,
+  };
+}
+
+function gameOverView(state: GameOverState): PublicView {
+  const prize = state.final === null ? undefined : FINAL_PRIZES[state.final.prizeIndex];
+  return {
+    ...EMPTY_VIEW,
+    phase: 'gameOver',
+    teams: publicTeams(state.teams),
+    ranking: rankTeams(state.teams),
+    finalResult:
+      state.final === null || prize === undefined
+        ? null
+        : { finalist: state.final.finalist, won: state.final.won, prize },
+  };
+}
+
 export function toPublicView(state: GameState, lastEvents: readonly GameEvent[]): PublicView {
-  const events = lastEvents.slice(-MAX_EVENTS);
+  // The drawn envelope stays a surprise until the end of the final.
+  const events = lastEvents.filter((event) => event.type !== 'prizeWheelSpun').slice(-MAX_EVENTS);
   switch (state.phase) {
     case 'setup':
       return { ...EMPTY_VIEW, lastEvents: events };
@@ -127,13 +206,9 @@ export function toPublicView(state: GameState, lastEvents: readonly GameEvent[])
       return { ...playingView(state), lastEvents: events };
     case 'roundOver':
       return { ...roundView(state), winner: state.winner, lastEvents: events };
+    case 'final':
+      return { ...finalView(state), lastEvents: events };
     case 'gameOver':
-      return {
-        ...EMPTY_VIEW,
-        phase: 'gameOver',
-        teams: publicTeams(state.teams),
-        ranking: rankTeams(state.teams),
-        lastEvents: events,
-      };
+      return { ...gameOverView(state), lastEvents: events };
   }
 }

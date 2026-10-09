@@ -7,7 +7,7 @@ import { parseTvMessage, stateMessage } from './messages';
 import { toPublicView } from './view';
 
 function deps(phrase: Phrase, random = 0): GameDeps {
-  return { random: () => random, phrases: [phrase] };
+  return { random: () => random, phrases: [phrase], finalPhrases: [phrase] };
 }
 
 function play(phrase: Phrase, actions: GameAction[], random = 0): GameState {
@@ -56,7 +56,7 @@ describe('toPublicView', () => {
       START,
       { type: 'startSolving' },
       { type: 'submitSolution', answer: 'le roi lion' },
-      { type: 'endGame' },
+      { type: 'abandonGame' },
     ]);
     expect(toPublicView(state, []).ranking).toEqual([
       { team: 0, rank: 1 },
@@ -87,5 +87,63 @@ describe('toPublicView', () => {
       expect(json.toUpperCase()).not.toContain(normalizeText(phrase.text));
       expect(json).not.toContain(phrase.theme);
     }
+  });
+
+  describe('final round', () => {
+    const phrase: Phrase = { theme: 'Objet', text: 'Une tondeuse' };
+    const winRound: GameAction[] = [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: 'une tondeuse' },
+      { type: 'nextRound' },
+    ];
+    const toFinal: GameAction[] = [START, ...winRound, ...winRound, ...winRound, ...winRound];
+    const picks: GameAction[] = [
+      { type: 'guessConsonant', letter: 'D' },
+      { type: 'guessConsonant', letter: 'B' },
+      { type: 'guessConsonant', letter: 'C' },
+      { type: 'guessVowel', letter: 'O' },
+    ];
+
+    it('lets the finalist spin the small wheel', () => {
+      expect(toPublicView(play(phrase, toFinal), [])).toMatchObject({
+        phase: 'final',
+        step: 'prizeWheel',
+        // All totals are tied at 0: the winner of round 4 (team 2) goes to the final.
+        activeTeam: 1,
+        canSpin: true,
+      });
+    });
+
+    it('never tells the phone which envelope was drawn before the end', () => {
+      const actions: GameAction[] = [...toFinal, { type: 'spin' }];
+      const view = toPublicView(play(phrase, actions), [{ type: 'prizeWheelSpun', prizeIndex: 3 }]);
+      expect(view.lastEvents).toEqual([]);
+      expect(view.finalResult).toBeNull();
+      expect(JSON.stringify(view)).not.toContain('prizeIndex');
+    });
+
+    it('greys out R S T L N E and counts the picks left', () => {
+      const actions: GameAction[] = [...toFinal, { type: 'spin' }, { type: 'spinEnded' }];
+      const view = toPublicView(play(phrase, [...actions, picks[0] ?? START]), []);
+      expect(view.guessedLetters).toEqual(['R', 'S', 'T', 'L', 'N', 'E', 'D']);
+      expect(view.finalPicks).toEqual({ consonants: 2, vowels: 1 });
+    });
+
+    it('reveals the envelope once the final is over', () => {
+      const actions: GameAction[] = [
+        ...toFinal,
+        { type: 'spin' },
+        { type: 'spinEnded' },
+        ...picks,
+        { type: 'submitSolution', answer: 'une tondeuse' },
+      ];
+      const view = toPublicView(play(phrase, actions), []);
+      expect(view.finalResult).toEqual({
+        finalist: 1,
+        won: true,
+        prize: { kind: 'money', amount: 500 },
+      });
+      expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+    });
   });
 });

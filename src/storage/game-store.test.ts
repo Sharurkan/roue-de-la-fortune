@@ -16,7 +16,11 @@ class MemoryStorage {
   }
 }
 
-const DEPS: GameDeps = { random: () => 0, phrases: [{ theme: 'Film', text: 'Le Roi lion' }] };
+const DEPS: GameDeps = {
+  random: () => 0,
+  phrases: [{ theme: 'Film', text: 'Le Roi lion' }],
+  finalPhrases: [{ theme: 'Objet', text: 'Une tondeuse' }],
+};
 
 function play(actions: GameAction[]): GameState {
   let state: GameState = INITIAL_STATE;
@@ -25,6 +29,18 @@ function play(actions: GameAction[]): GameState {
 }
 
 const START: GameAction = { type: 'startGame', teamNames: ['Rouges', 'Bleus', 'Verts'] };
+const WIN_ROUND: GameAction[] = [
+  { type: 'startSolving' },
+  { type: 'submitSolution', answer: 'le roi lion' },
+  { type: 'nextRound' },
+];
+const TO_FINAL: GameAction[] = [START, ...WIN_ROUND, ...WIN_ROUND, ...WIN_ROUND, ...WIN_ROUND];
+const PICKS: GameAction[] = [
+  { type: 'guessConsonant', letter: 'D' },
+  { type: 'guessConsonant', letter: 'B' },
+  { type: 'guessConsonant', letter: 'C' },
+  { type: 'guessVowel', letter: 'O' },
+];
 
 describe('game store', () => {
   let storage: MemoryStorage;
@@ -53,7 +69,26 @@ describe('game store', () => {
       'the end of a round',
       [START, { type: 'startSolving' }, { type: 'submitSolution', answer: 'le roi lion' }],
     ],
-    ['the end of the game', [START, { type: 'abandonGame' }]],
+    ['an abandoned game', [START, { type: 'abandonGame' }]],
+    [
+      'the final, letters being picked',
+      [
+        ...TO_FINAL,
+        { type: 'spin' },
+        { type: 'spinEnded' },
+        { type: 'guessConsonant', letter: 'D' },
+      ],
+    ],
+    [
+      'the end of the final',
+      [
+        ...TO_FINAL,
+        { type: 'spin' },
+        { type: 'spinEnded' },
+        ...PICKS,
+        { type: 'submitSolution', answer: 'une tondeuse' },
+      ],
+    ],
   ] satisfies [string, GameAction[]][])('saves and restores %s', (_, actions) => {
     const state = play(actions);
     expect(saveGame(state)).toBe(true);
@@ -74,7 +109,7 @@ describe('game store', () => {
     const state = play([START]);
     if (state.phase !== 'playing') throw new Error('Expected playing');
     const broken = { ...state, round: { ...state.round, activeTeam: 7 } };
-    storage.setItem('rdlf.game', JSON.stringify({ v: 1, state: broken }));
+    storage.setItem('rdlf.game', JSON.stringify({ v: 2, state: broken }));
     expect(loadGame()).toEqual({ kind: 'unreadable' });
   });
 

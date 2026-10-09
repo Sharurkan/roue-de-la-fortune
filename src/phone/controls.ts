@@ -1,3 +1,4 @@
+import { ROUND_COUNT } from '../game/config';
 import type { PublicView } from '../protocol/view';
 
 /** What the phone shows, derived only from the public view sent by the TV. */
@@ -14,7 +15,11 @@ export type PhoneScreen =
   | { kind: 'consonant'; value: number }
   | { kind: 'vowel' }
   | { kind: 'solving' }
-  | { kind: 'roundOver'; winner: number | null }
+  | { kind: 'roundOver'; winner: number | null; isLastRound: boolean }
+  | { kind: 'prizeWheel' }
+  | { kind: 'prizeSpinning' }
+  | { kind: 'finalPicking'; consonantsLeft: number; vowelsLeft: number }
+  | { kind: 'finalSolving' }
   | { kind: 'gameOver' };
 
 function roundScreen(view: PublicView): PhoneScreen {
@@ -28,6 +33,9 @@ function roundScreen(view: PublicView): PhoneScreen {
     case 'solving':
       return { kind: 'solving' };
     case 'choosing':
+    case 'prizeWheel':
+    case 'prizeSpinning':
+    case 'pickingLetters':
     case null:
       return {
         kind: 'turn',
@@ -39,6 +47,23 @@ function roundScreen(view: PublicView): PhoneScreen {
   }
 }
 
+function finalScreen(view: PublicView): PhoneScreen {
+  switch (view.step) {
+    case 'prizeSpinning':
+      return { kind: 'prizeSpinning' };
+    case 'pickingLetters':
+      return {
+        kind: 'finalPicking',
+        consonantsLeft: view.finalPicks?.consonants ?? 0,
+        vowelsLeft: view.finalPicks?.vowels ?? 0,
+      };
+    case 'solving':
+      return { kind: 'finalSolving' };
+    default:
+      return { kind: 'prizeWheel' };
+  }
+}
+
 export function describeScreen(view: PublicView): PhoneScreen {
   switch (view.phase) {
     case 'setup':
@@ -46,7 +71,13 @@ export function describeScreen(view: PublicView): PhoneScreen {
     case 'playing':
       return roundScreen(view);
     case 'roundOver':
-      return { kind: 'roundOver', winner: view.winner };
+      return {
+        kind: 'roundOver',
+        winner: view.winner,
+        isLastRound: view.roundNumber >= ROUND_COUNT,
+      };
+    case 'final':
+      return finalScreen(view);
     case 'gameOver':
       return { kind: 'gameOver' };
   }

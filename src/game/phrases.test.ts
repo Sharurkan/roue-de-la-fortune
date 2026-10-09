@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { layoutBoard } from './board';
-import { CONSONANTS, VOWELS } from './config';
-import { PHRASES } from './phrases';
+import { CONSONANTS, FINAL_GIVEN_LETTERS, VOWELS } from './config';
+import { FINAL_PHRASES, PHRASES } from './phrases';
 import { normalizeText } from './text';
 
 const ALLOWED = /^[A-Z '\-,.!?]+$/;
@@ -30,6 +30,33 @@ describe('PHRASES', () => {
       const letters = Array.from(normalizeText(text));
       expect(letters.some((char) => CONSONANTS.includes(char))).toBe(true);
       expect(letters.some((char) => VOWELS.includes(char))).toBe(true);
+    },
+  );
+});
+
+describe('FINAL_PHRASES', () => {
+  it('contains enough answers to vary the final', () => {
+    expect(FINAL_PHRASES.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it.each(FINAL_PHRASES.map((phrase) => phrase.text))('%s fits on the board', (text) => {
+    expect(layoutBoard(text)).not.toBeNull();
+  });
+
+  it.each(FINAL_PHRASES.map((phrase) => phrase.text))(
+    '%s only uses supported characters',
+    (text) => {
+      expect(normalizeText(text)).toMatch(ALLOWED);
+    },
+  );
+
+  it.each(FINAL_PHRASES.map((phrase) => phrase.text))(
+    '%s still hides letters once R S T L N E are given',
+    (text) => {
+      const hidden = Array.from(normalizeText(text)).filter(
+        (char) => /[A-Z]/.test(char) && !FINAL_GIVEN_LETTERS.includes(char),
+      );
+      expect(hidden.length).toBeGreaterThanOrEqual(2);
     },
   );
 });
