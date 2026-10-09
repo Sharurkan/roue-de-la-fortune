@@ -334,6 +334,11 @@ function buzzScreen(context: ScreenContext, eliminatedTeams: readonly number[]):
   ]);
 }
 
+/** Other phones see why the next step is greyed: only the master moves the game on. */
+function masterNote(context: ScreenContext): HTMLElement[] {
+  return context.role.canManage ? [] : [note(texts.masterMovesOn)];
+}
+
 function roundOverScreen(
   context: ScreenContext,
   winner: number | null,
@@ -352,6 +357,7 @@ function roundOverScreen(
         disabled: !context.manageEnabled,
       },
     ),
+    ...masterNote(context),
     end,
   ]);
 }
@@ -419,6 +425,7 @@ function gameOverScreen(context: ScreenContext): HTMLElement {
       },
       { disabled: !context.manageEnabled },
     ),
+    ...masterNote(context),
   ]);
 }
 

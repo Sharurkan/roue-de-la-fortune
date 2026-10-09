@@ -102,6 +102,7 @@ export const PHONE_TEXTS = {
   needTeams: (count: number) => `Il faut au moins ${String(count)} équipes.`,
   masterMustJoin: 'Rejoins la partie avec ton équipe pour pouvoir la lancer.',
   masterStarts: 'Le premier téléphone connecté lancera la partie.',
+  masterMovesOn: "C'est le premier téléphone connecté qui lance la suite.",
   yourTeam: (name: string) => `Ton équipe : ${name}`,
   notYourTurn: (name: string) => `Ce n'est pas ton tour : c'est à ${name}`,
   teamDisconnected: (name: string) => `Le téléphone de ${name} est déconnecté.`,
