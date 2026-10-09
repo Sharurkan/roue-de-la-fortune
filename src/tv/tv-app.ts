@@ -4,24 +4,42 @@ import { TOSS_UP_REVEAL_INTERVAL_MS, type MysteryEffect } from '../game/config';
 import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from '../game/phrases';
 import { rankTeams } from '../game/ranking';
 import { reduce, type GameDeps, type ReduceResult } from '../game/reducer';
+import { canAct } from '../game/permissions';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
 import type { ConnectionStatus } from '../net/connection-status';
-import { startHost } from '../net/host';
+import { startHost, type LinkId } from '../net/host';
 import { generateRoomCode, isValidRoomCode } from '../net/room-code';
 import {
   HEARTBEAT,
   parsePhoneMessage,
+  REPLACED,
   stateMessage,
   type PhoneMessage,
+  type RoomMessage,
   type TvMessage,
 } from '../protocol/messages';
-import { SINGLE_PHONE_ROOM } from '../protocol/room';
 import { toPublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
 import { watchOnline } from '../shared/network';
 import { loadGame, saveGame } from '../storage/game-store';
 import { loadRoomCode, saveRoomCode } from '../storage/room-code-store';
-import { createGameScreen, createRankingScreen, createSetupScreen } from './screens';
+import { loadRoom, saveRoom } from '../storage/room-store';
+import {
+  actorFor,
+  chooseMode,
+  dropLink,
+  EMPTY_ROOM,
+  greet,
+  isMaster,
+  isTeamConnected,
+  joinTeam,
+  removeTeam,
+  roomViewFor,
+  seatsView,
+  type Room,
+  type RoomChange,
+} from './room';
+import { createGameScreen, createRankingScreen, createSetupScreen, type Phones } from './screens';
 import { createSound, type Sound } from './sound';
 import { keepScreenOn } from './wake-lock';
 import { eventMessage, statusLabel, TV_TEXTS } from './texts';
@@ -40,6 +58,8 @@ const TOSS_UP_RESULT_PAUSE_MS = 3000;
 const POCKET_RESULT_PAUSE_MS = 3500;
 /** The mystery panel stays turned over long enough to be read from the couch. */
 const MYSTERY_PAUSE_MS = 3000;
+/** Leaves a replaced phone the time to read why before its link is closed. */
+const DISMISS_DELAY_MS = 1000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,6 +88,13 @@ function controllerUrl(code: string): string {
 function initialRoomCode(): string {
   const saved = loadRoomCode();
   return saved !== null && isValidRoomCode(saved) ? saved : generateRoomCode(Math.random);
+}
+
+function initialRoom(state: GameState): Room {
+  const saved = loadRoom();
+  const room: Room = saved === null ? EMPTY_ROOM : { ...saved, links: [] };
+  // A game saved before the mode existed was played with one phone.
+  return room.mode === null && state.phase !== 'setup' ? { ...room, mode: 'single' } : room;
 }
 
 /** A wheel that was spinning when the page was reloaded: spin it again to the same result. */
@@ -147,11 +174,12 @@ export function startTv(root: HTMLElement): void {
   const final = createRankingScreen();
   const corner = createElement('div', { className: 'corner' });
 
-  const warnings = { offline: '', room: '', game: '', controller: '' };
+  const warnings = { offline: '', room: '', game: '', teams: '', controller: '' };
   const saved = loadGame();
   if (saved.kind === 'unreadable') warnings.game = TV_TEXTS.saveUnreadable;
   let state: GameState = saved.kind === 'loaded' ? saved.state : INITIAL_STATE;
   let code = initialRoomCode();
+  let room = initialRoom(state);
   let connection: ConnectionStatus = { kind: 'waiting' };
   let presentation: Promise<void> = Promise.resolve();
   let tossUpTimer: ReturnType<typeof setTimeout> | undefined;
@@ -175,6 +203,14 @@ export function startTv(root: HTMLElement): void {
     setup.showRoom(code, controllerUrl(code));
     warnings.room = saveRoomCode(code) ? '' : TV_TEXTS.storageFailed;
     updateCorner();
+  }
+
+  function phones(): Phones {
+    const teamCount = state.phase === 'setup' ? 0 : state.teams.length;
+    const offline = Array.from({ length: teamCount }, (_, team) => team).filter(
+      (team) => !isTeamConnected(room, team),
+    );
+    return room.mode === 'multi' ? { multi: true, offline } : { multi: false, offline: [] };
   }
 
   function render(current: GameState): void {
@@ -295,12 +331,86 @@ export function startTv(root: HTMLElement): void {
     }, TOSS_UP_REVEAL_INTERVAL_MS);
   }
 
-  function sendView(events: readonly GameEvent[]): void {
-    const message = stateMessage(
-      toPublicView(state, events, slowAnimations > 0),
-      SINGLE_PHONE_ROOM,
+  function sendView(events: readonly GameEvent[], to: readonly LinkId[] = host.links()): void {
+    const view = toPublicView(state, events, slowAnimations > 0);
+    for (const link of to) host.send(link, stateMessage(view, roomViewFor(room, link)));
+  }
+
+  /** The phone is told first, so that it does not come back and take over in turn. */
+  function dismiss(link: LinkId): void {
+    host.send(link, REPLACED);
+    setTimeout(() => {
+      host.close(link);
+    }, DISMISS_DELAY_MS);
+  }
+
+  function updateRoom(next: Room, close: readonly LinkId[] = []): void {
+    room = next;
+    for (const link of close) dismiss(link);
+    warnings.teams = saveRoom(room) ? '' : TV_TEXTS.saveFailed;
+    updateCorner();
+    setup.showLobby(room.mode, seatsView(room));
+    game.showPhones(phones());
+    sendView(
+      [],
+      host.links().filter((link) => !close.includes(link)),
     );
-    for (const link of host.links()) host.send(link, message);
+  }
+
+  function mayAct(link: LinkId, action: GameAction): boolean {
+    switch (room.mode) {
+      case null:
+        return false;
+      case 'single':
+        return isMaster(room, link);
+      case 'multi': {
+        const actor = actorFor(room, link);
+        const connected = (team: number): boolean => isTeamConnected(room, team);
+        return actor !== null && canAct(state, action, actor, connected);
+      }
+    }
+  }
+
+  /** With one phone per team, the teams are the ones that joined, whatever the phone sent. */
+  function withSeatNames(action: GameAction): GameAction {
+    if (action.type !== 'startGame' || room.mode !== 'multi') return action;
+    return { ...action, teamNames: room.seats.map((seat) => seat.name) };
+  }
+
+  /** Changes to the room, only between games. */
+  function roomChange(message: RoomMessage, link: LinkId): RoomChange | null {
+    if (state.phase !== 'setup') return null;
+    if (message.type === 'chooseMode') return chooseMode(room, link, message.mode);
+    const next =
+      message.type === 'joinTeam'
+        ? joinTeam(room, link, message.name)
+        : removeTeam(room, link, message.team);
+    return next === null ? null : { room: next, close: [] };
+  }
+
+  function receive(message: PhoneMessage, link: LinkId): void {
+    switch (message.type) {
+      case 'hello': {
+        const change = greet(room, link, message.clientId);
+        updateRoom(change.room, change.close);
+        return;
+      }
+      case 'chooseMode':
+      case 'joinTeam':
+      case 'removeTeam': {
+        const change = roomChange(message, link);
+        // A refused phone still gets an answer, so that it stops waiting.
+        if (change === null) sendView([], [link]);
+        else updateRoom(change.room, change.close);
+        return;
+      }
+      case 'action':
+        if (mayAct(link, message.action)) dispatch(withSeatNames(message.action));
+        else sendView([], [link]);
+        return;
+      case 'heartbeat':
+        return;
+    }
   }
 
   /** Queues the animations of a result. The phone is told when the slow ones are over. */
@@ -327,6 +437,7 @@ export function startTv(root: HTMLElement): void {
     const result = reduce(state, action, GAME_DEPS);
     state = result.state;
     warnings.game = saveGame(state) ? '' : TV_TEXTS.saveFailed;
+    game.showPhones(phones());
     updateCorner();
     // Queued first, so that this view already says whether the TV is busy.
     queuePresentation(result);
@@ -350,13 +461,10 @@ export function startTv(root: HTMLElement): void {
     },
     decode: parsePhoneMessage,
     heartbeat: HEARTBEAT,
-    onLinkOpen: (link) => {
-      // One phone at a time: a new phone replaces the previous one.
-      for (const other of host.links()) if (other !== link) host.close(other);
+    onLinkLost: (link) => {
+      updateRoom(dropLink(room, link));
     },
-    onMessage: (message) => {
-      if (message.type === 'action') dispatch(message.action);
-    },
+    onMessage: receive,
     onInvalid: (reason) => {
       if (reason !== 'version') return;
       warnings.controller = TV_TEXTS.updateController;
@@ -380,6 +488,8 @@ export function startTv(root: HTMLElement): void {
   );
   showRoom();
   setup.showConnection(statusLabel(connection), connection.kind);
+  setup.showLobby(room.mode, seatsView(room));
+  game.showPhones(phones());
   render(state);
   resume();
   setup.soundButton.focus();

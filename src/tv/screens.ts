@@ -1,6 +1,7 @@
-import { FINAL_PRIZES, WHEELS } from '../game/config';
+import { DEFAULT_TEAM_NAME_PREFIX, FINAL_PRIZES, WHEELS } from '../game/config';
 import { finalRevealedLetters } from '../game/final';
 import { orderByRoundScore, type RankedTeam } from '../game/ranking';
+import type { PlayMode, RoomView } from '../protocol/room';
 import type {
   FinalResult,
   FinalState,
@@ -21,6 +22,25 @@ export interface SetupScreen {
   soundButton: HTMLButtonElement;
   showRoom(code: string, controllerUrl: string): void;
   showConnection(label: string, kind: string): void;
+  showLobby(mode: PlayMode | null, seats: RoomView['seats']): void;
+}
+
+/** Name shown for a team joined without a name, as the game will name it. */
+function seatName(name: string, index: number): string {
+  return name === '' ? `${DEFAULT_TEAM_NAME_PREFIX} ${String(index + 1)}` : name;
+}
+
+function lobbyHint(mode: PlayMode | null): string {
+  if (mode === null) return TV_TEXTS.lobby.choosing;
+  return mode === 'single' ? TV_TEXTS.lobby.single : TV_TEXTS.lobby.multi;
+}
+
+function seatRow(seat: RoomView['seats'][number], index: number): HTMLElement {
+  const state = seat.connected ? TV_TEXTS.lobby.connected : TV_TEXTS.lobby.disconnected;
+  return createElement('li', { className: seat.connected ? 'seat' : 'seat offline' }, [
+    createElement('span', { className: 'seat-name', text: seatName(seat.name, index) }),
+    createElement('span', { className: 'seat-state', text: state }),
+  ]);
 }
 
 export function createSetupScreen(): SetupScreen {
@@ -28,6 +48,8 @@ export function createSetupScreen(): SetupScreen {
   const qrSlot = createElement('div', { className: 'setup-qr' });
   const url = createElement('div', { className: 'setup-url' });
   const connection = createElement('div', { className: 'connection' });
+  const lobbyHintElement = createElement('p', { className: 'muted', text: lobbyHint(null) });
+  const seatList = createElement('ul', { className: 'seats' });
   const soundButton = createElement('button', {
     className: 'sound-button',
     text: TV_TEXTS.soundButton,
@@ -44,7 +66,8 @@ export function createSetupScreen(): SetupScreen {
       ]),
     ]),
     connection,
-    createElement('p', { className: 'muted', text: TV_TEXTS.configureOnPhone }),
+    lobbyHintElement,
+    seatList,
     soundButton,
   ]);
   return {
@@ -58,6 +81,15 @@ export function createSetupScreen(): SetupScreen {
     showConnection: (label, kind) => {
       connection.textContent = label;
       connection.dataset['kind'] = kind;
+    },
+    showLobby: (mode, seats) => {
+      lobbyHintElement.textContent = lobbyHint(mode);
+      seatList.hidden = mode !== 'multi';
+      seatList.replaceChildren(
+        ...(seats.length === 0
+          ? [createElement('li', { className: 'muted', text: TV_TEXTS.lobby.noTeam })]
+          : seats.map(seatRow)),
+      );
     },
   };
 }
@@ -76,6 +108,14 @@ export interface GameScreen {
   /** Mystery panel turned over the wheel; null hides it. */
   showMystery(text: string | null): void;
   render(state: BoardState): void;
+  /** Marks the teams whose phone is disconnected, without touching the rest of the screen. */
+  showPhones(phones: Phones): void;
+}
+
+/** Phones of the teams, with one phone per team. */
+export interface Phones {
+  multi: boolean;
+  offline: readonly number[];
 }
 
 export type BoardState = TossUpState | PlayingState | RoundOverState | FinalState;
@@ -92,10 +132,21 @@ function teamClass(index: number, active: number | null, out: readonly number[])
   return out.includes(index) ? 'team out' : 'team';
 }
 
+function teamNameCell(name: string, offline: boolean): HTMLElement {
+  return createElement(
+    'div',
+    { className: 'team-name', text: name },
+    offline
+      ? [createElement('div', { className: 'team-offline', text: TV_TEXTS.phoneOffline })]
+      : [],
+  );
+}
+
 function renderTeams(
   container: HTMLElement,
   teams: readonly Team[],
   active: number | null,
+  offline: readonly number[],
   out: readonly number[] = [],
 ): void {
   // The best round score comes first, like on TV.
@@ -106,7 +157,7 @@ function renderTeams(
   container.replaceChildren(
     ...ordered.map(({ team, index }) =>
       createElement('div', { className: teamClass(index, active, out) }, [
-        createElement('div', { className: 'team-name', text: team.name }),
+        teamNameCell(team.name, offline.includes(index)),
         createElement('div', { className: 'team-scores' }, [
           createElement('div', { className: 'team-round', text: TV_TEXTS.euros(team.roundScore) }),
           createElement('div', { className: 'team-total', text: TV_TEXTS.total(team.totalScore) }),
@@ -182,6 +233,19 @@ export function createGameScreen(onTick: () => void): GameScreen {
   ]);
 
   let currentWheel: Wheel = prizeWheel;
+  let phones: Phones = { multi: false, offline: [] };
+  let drawTeams = (): void => undefined;
+
+  function showTeams(
+    list: readonly Team[],
+    active: number | null,
+    out: readonly number[] = [],
+  ): void {
+    drawTeams = () => {
+      renderTeams(teams, list, active, phones.offline, out);
+    };
+    drawTeams();
+  }
 
   /** Only one wheel is visible: the one of the round, or the envelope wheel in the final. */
   function showWheel(shown: Wheel): void {
@@ -203,7 +267,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     theme.textContent = state.final.phrase.theme;
     showPhrase(state.final.phrase.text, finalRevealedLetters(state));
     board.element.classList.remove('won');
-    renderTeams(teams, state.teams, state.finalist);
+    showTeams(state.teams, state.finalist);
     const picked = state.final.pickedLetters.join(' ');
     letters.textContent = `${TV_TEXTS.pickedLetters} : ${picked === '' ? TV_TEXTS.noUsedLetters : picked}`;
     hint.textContent = state.step.kind === 'pickingLetters' ? TV_TEXTS.finalHint : '';
@@ -218,9 +282,10 @@ export function createGameScreen(onTick: () => void): GameScreen {
       board.setPhrase(tossUp.phrase.text, [], tossUp.revealOrder.slice(0, tossUp.revealedCount));
     }
     board.element.classList.remove('won');
-    renderTeams(teams, state.teams, tossUp.buzzer, tossUp.eliminated);
+    showTeams(state.teams, tossUp.buzzer, tossUp.eliminated);
     letters.textContent = '';
-    hint.textContent = tossUp.buzzer === null ? TV_TEXTS.tossUpHint : '';
+    const tossUpHint = phones.multi ? TV_TEXTS.tossUpHintMulti : TV_TEXTS.tossUpHint;
+    hint.textContent = tossUp.buzzer === null ? tossUpHint : '';
   }
 
   function render(state: BoardState): void {
@@ -239,7 +304,8 @@ export function createGameScreen(onTick: () => void): GameScreen {
     showPhrase(round.phrase.text, round.guessedLetters);
     if (state.phase === 'roundOver') board.revealAll();
     board.element.classList.toggle('won', state.phase === 'roundOver');
-    renderTeams(teams, state.teams, state.phase === 'playing' ? round.activeTeam : state.winner);
+    const active = state.phase === 'playing' ? round.activeTeam : state.winner;
+    showTeams(state.teams, active);
     const used = round.guessedLetters.join(' ');
     letters.textContent = `${TV_TEXTS.usedLetters} : ${used === '' ? TV_TEXTS.noUsedLetters : used}`;
     const choosingPocket = state.phase === 'playing' && state.step.kind === 'choosingPocket';
@@ -269,6 +335,10 @@ export function createGameScreen(onTick: () => void): GameScreen {
       restartAnimation(element, 'flash');
     },
     render,
+    showPhones: (next) => {
+      phones = next;
+      drawTeams();
+    },
   };
 }
 

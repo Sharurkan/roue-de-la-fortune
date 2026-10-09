@@ -38,6 +38,8 @@ const tvMessageSchema = z.discriminatedUnion('type', [
     view: publicViewSchema,
     room: roomViewSchema,
   }),
+  /** With one phone, another phone took over: this one must stop reconnecting on its own. */
+  z.object({ v: version, type: z.literal('replaced') }),
   heartbeatSchema,
 ]);
 
@@ -45,6 +47,8 @@ const tvMessageSchema = z.discriminatedUnion('type', [
 export type PhoneMessage = z.infer<typeof phoneMessageSchema>;
 /** TV → phone. */
 export type TvMessage = z.infer<typeof tvMessageSchema>;
+/** Phone messages that change the room rather than the game. */
+export type RoomMessage = Extract<PhoneMessage, { type: 'chooseMode' | 'joinTeam' | 'removeTeam' }>;
 
 export type ParseResult<T> =
   { ok: true; message: T } | { ok: false; reason: 'version' | 'invalid' };
@@ -70,6 +74,8 @@ export function removeTeamMessage(team: number): PhoneMessage {
 export function actionMessage(action: PhoneAction): PhoneMessage {
   return { v: PROTOCOL_VERSION, type: 'action', action };
 }
+
+export const REPLACED: TvMessage = { v: PROTOCOL_VERSION, type: 'replaced' };
 
 export function stateMessage(view: PublicView, room: RoomView): TvMessage {
   return { v: PROTOCOL_VERSION, type: 'state', view, room };

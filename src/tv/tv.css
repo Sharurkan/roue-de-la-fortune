@@ -585,3 +585,37 @@
     transform: translate(-50%, -50%) rotateY(0deg);
   }
 }
+
+/* Teams joined with their own phone, before the game. */
+.seats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1vh 2vw;
+  margin: 1vh 0;
+  padding: 0;
+  list-style: none;
+  font-size: 3.2vh;
+}
+
+.seat {
+  padding: 0.6vh 1.5vw;
+  border: 0.4vh solid var(--ok);
+  border-radius: 1vh;
+}
+
+.seat.offline {
+  border-color: var(--error);
+  opacity: 0.6;
+}
+
+.seat-state {
+  margin-left: 1vw;
+  font-size: 2.4vh;
+}
+
+.team-offline {
+  font-family: inherit;
+  font-size: 2vh;
+  color: var(--error);
+}

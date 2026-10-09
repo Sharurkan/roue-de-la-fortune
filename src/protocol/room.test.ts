@@ -7,6 +7,7 @@ import {
   parseTvMessage,
   PROTOCOL_VERSION,
   removeTeamMessage,
+  REPLACED,
   stateMessage,
 } from './messages';
 import { INITIAL_STATE } from '../game/state';
@@ -74,6 +75,10 @@ describe('room view from the TV', () => {
     { mode: 'multi', team: 0, seats: [] },
   ])('rejects the malformed room %j', (room) => {
     expect(parseTvMessage({ v: PROTOCOL_VERSION, type: 'state', view, room })).toEqual(invalid);
+  });
+
+  it('accepts the notice of a replaced phone', () => {
+    expect(parseTvMessage(REPLACED)).toEqual({ ok: true, message: REPLACED });
   });
 
   it('rejects a state without room', () => {
