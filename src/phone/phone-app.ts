@@ -284,13 +284,15 @@ function showController(root: HTMLElement, code: string): void {
   function receiveState(next: PublicView, nextRoom: RoomView): void {
     // Standing in lasts for one turn: it stops when the turn moves on.
     if (next.activeTeam !== standingIn) standingIn = null;
+    // Toss-up letters appear every second or so: they must not wipe the last message,
+    // nor an abandon waiting for its confirmation.
+    const onlyLetters = next.lastEvents.every((event) => event.type === 'tossUpLetterRevealed');
+    const moved = view === null || next.phase !== view.phase || next.step !== view.step;
+    if (moved || !onlyLetters) confirming = null;
     view = next;
     room = nextRoom;
     versionError = false;
-    confirming = null;
     setPending(false);
-    // Toss-up letters appear every second or so: they must not wipe the last message.
-    const onlyLetters = next.lastEvents.every((event) => event.type === 'tossUpLetterRevealed');
     if (next.lastEvents.length > 0 && !onlyLetters) {
       message = messageFor(next.lastEvents, (team) => next.teams[team]?.name ?? '');
     }
