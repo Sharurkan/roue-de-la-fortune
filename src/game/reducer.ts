@@ -34,6 +34,7 @@ import {
 } from './selectors';
 import type { GameAction, GameState, PlayingState, Round } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
+import { revealMystery } from './mystery';
 import { offerPocket, openPocket } from './pocket';
 import { passTurn } from './round';
 import { pickSlotPart, wheelForRound } from './wheel';
@@ -155,6 +156,8 @@ function spinEnded(state: GameState, deps: GameDeps): ReduceResult {
       return passTurn(state, [{ type: 'landedOnPass', team }]);
     case 'pocket':
       return offerPocket(state, deps);
+    case 'mystery':
+      return revealMystery(state, segment.amount, deps);
     case undefined:
       return reject(state, 'wrongPhase');
   }

@@ -1,4 +1,4 @@
-import { FINAL_PRIZES, type Prize } from '../game/config';
+import { FINAL_PRIZES, type MysteryEffect, type Prize } from '../game/config';
 import type { GameEvent } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -11,6 +11,21 @@ export function prizeLabel(prize: Prize): string {
 function prizeAt(prizeIndex: number): string {
   const prize = FINAL_PRIZES[prizeIndex];
   return prize === undefined ? '' : prizeLabel(prize);
+}
+
+function mysteryMessage(outcome: MysteryEffect | 'money', name: string): string {
+  switch (outcome) {
+    case 'money':
+      return 'Mystère : 500 € par consonne trouvée';
+    case 'bonus':
+      return `Mystère : +1 000 € pour ${name} !`;
+    case 'double':
+      return `Mystère : le score de ${name} est doublé !`;
+    case 'bankrupt':
+      return `Mystère : banqueroute pour ${name} !`;
+    case 'half':
+      return `Mystère : ${name} perd la moitié de son score`;
+  }
 }
 
 export const TV_TEXTS = {
@@ -50,6 +65,13 @@ export const TV_TEXTS = {
   pocketRed: 'Rouge',
   pocketBlue: 'Bleue',
   pocketEmpty: 'Rien',
+  mystery: {
+    money: '500 €',
+    bonus: '+1 000 €',
+    double: 'Score doublé',
+    bankrupt: 'Banqueroute',
+    half: 'Moitié perdue',
+  },
 } as const;
 
 const STATUS_LABELS: Record<ConnectionStatus['kind'], string> = {
@@ -92,6 +114,8 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
       return `Manche ${String(event.roundNumber)} : c'est parti !`;
     case 'bankrupt':
       return `BANQUEROUTE ! ${teamName(event.team)} perd son score de manche`;
+    case 'mysteryRevealed':
+      return mysteryMessage(event.outcome, teamName(event.team));
     case 'pocketOffered':
       return `La Bonne Poche ! ${teamName(event.team)}, rouge ou bleue ?`;
     case 'pocketOpened':

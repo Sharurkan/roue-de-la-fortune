@@ -1,4 +1,4 @@
-import type { Prize } from '../game/config';
+import type { MysteryEffect, Prize } from '../game/config';
 import type { GameEvent, RejectionReason } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -86,6 +86,14 @@ export function statusLabel(status: ConnectionStatus): string {
     : `${STATUS_LABELS[status.kind]} (${detail})`;
 }
 
+const MYSTERY_TEXTS: Record<MysteryEffect | 'money', string> = {
+  money: 'Mystère : 500 € par lettre',
+  bonus: 'Mystère : +1 000 € !',
+  double: 'Mystère : score doublé !',
+  bankrupt: 'Mystère : banqueroute !',
+  half: 'Mystère : moitié perdue',
+};
+
 const REJECTIONS: Record<RejectionReason, string> = {
   wrongPhase: "Ce n'est pas possible maintenant",
   invalidTeamCount: 'Il faut 2 à 4 équipes',
@@ -116,6 +124,8 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
       return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'bankrupt':
       return `Banqueroute pour ${teamName(event.team)} !`;
+    case 'mysteryRevealed':
+      return MYSTERY_TEXTS[event.outcome];
     case 'pocketOffered':
       return 'La Bonne Poche !';
     case 'pocketOpened':

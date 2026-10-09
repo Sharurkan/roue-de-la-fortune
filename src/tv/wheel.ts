@@ -43,7 +43,8 @@ export interface WheelFace {
   fill: string;
   ink: string;
   label:
-    | { kind: 'digits'; text: string }
+    /** leadInk colours the first character differently (the mystery's "?"). */
+    | { kind: 'digits'; text: string; leadInk?: string }
     | { kind: 'word'; text: string; size?: number }
     | { kind: 'envelope' }
     /** Small caption near the rim, then a bigger word along the radius. */
@@ -94,6 +95,12 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
             text: TV_TEXTS.wheel.pocket,
           },
         };
+      case 'mystery':
+        return {
+          fill: POCKET_BLUE,
+          ink: '#ffffff',
+          label: { kind: 'digits', text: `?${String(segment.amount)}€`, leadInk: GOLD },
+        };
       case 'jackpot':
         return {
           fill: JACKPOT_FILL,
@@ -120,11 +127,11 @@ function pointAt(angle: number, radius: number): string {
 }
 
 /** Values are written like on TV: one digit under the other, from the rim inwards. */
-function stackedLabel(text: string, color: string): SVGTextElement[] {
+function stackedLabel(text: string, color: string, leadInk = color): SVGTextElement[] {
   return Array.from(text, (char, i) => {
     const digit = createSvgElement('text', {
       y: -(FIRST_DIGIT_RADIUS - i * DIGIT_STEP),
-      fill: color,
+      fill: i === 0 ? leadInk : color,
       class: 'wheel-digit',
       'text-anchor': 'middle',
       'dominant-baseline': 'central',
@@ -158,7 +165,7 @@ function envelopeIcon(): SVGGElement {
 function faceLabel(face: WheelFace): SVGElement[] {
   switch (face.label.kind) {
     case 'digits':
-      return stackedLabel(face.label.text, face.ink);
+      return stackedLabel(face.label.text, face.ink, face.label.leadInk);
     case 'word':
       return [radialLabel(face.label.text, face.ink, face.label.size)];
     case 'envelope':

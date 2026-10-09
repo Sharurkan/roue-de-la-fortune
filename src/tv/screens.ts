@@ -73,6 +73,8 @@ export interface GameScreen {
   flash(): void;
   /** La Bonne Poche: shows what both envelopes held. */
   openPockets(winning: PocketColor, amount: number): void;
+  /** Mystery panel turned over the wheel; null hides it. */
+  showMystery(text: string | null): void;
   render(state: BoardState): void;
 }
 
@@ -149,6 +151,8 @@ export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
   const wheels = WHEELS.map((segments) => createWheel(segmentFaces(segments), onTick));
   const pockets = createPockets();
+  const mystery = createElement('div', { className: 'mystery-panel' });
+  mystery.hidden = true;
   const prizeWheel = createWheel(envelopeFaces(FINAL_PRIZES.length), onTick);
   prizeWheel.element.classList.add('prize-wheel');
   const header = createElement('header', { className: 'game-header' });
@@ -162,6 +166,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     createElement('div', { className: 'board-frame' }, [board.element, theme]),
     createElement('div', { className: 'wheel-slot' }, [
       pockets.element,
+      mystery,
       ...wheels.map((w) => w.element),
       prizeWheel.element,
     ]),
@@ -251,6 +256,10 @@ export function createGameScreen(onTick: () => void): GameScreen {
       restartAnimation(banner, 'appear');
     },
     openPockets: pockets.open,
+    showMystery: (text) => {
+      mystery.hidden = text === null;
+      mystery.textContent = text ?? '';
+    },
     flash: () => {
       restartAnimation(element, 'flash');
     },

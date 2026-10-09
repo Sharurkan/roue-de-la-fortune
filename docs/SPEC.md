@@ -36,9 +36,10 @@ Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 
 - Manche 1 : petites sommes, aucun piège.
 - Manche 2 : une case PASSE.
-- Manche 3 : une BANQUEROUTE, une PASSE et la case « La Bonne Poche » à midi.
+- Manche 3 : une BANQUEROUTE, une PASSE, la case « La Bonne Poche » à midi et la case Mystère à 6 h.
 - Manche 4 : une case partagée à midi (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE) et une PASSE à 16 h.
 - La Bonne Poche : deux enveloppes, une rouge et une bleue. L'une contient une somme tirée au hasard (500 à 3 000 €), l'autre rien ; l'enveloppe gagnante est tirée à chaque fois. Bonne enveloppe : la somme s'ajoute au score de manche et l'équipe rejoue. Enveloppe vide : la main passe.
+- Mystère (case bleue, « ? » doré puis 500 €) : le panneau se retourne. Une fois sur deux, 500 € par consonne comme une case normale. Sinon un effet tiré au hasard : +1 000 € ou score de manche doublé (l'équipe rejoue), banqueroute ou moitié du score de manche perdue (la main passe).
 - Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
 
 Tour de jeu, l'équipe active peut :
@@ -144,7 +145,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 6.
+- Version actuelle du protocole : 7.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

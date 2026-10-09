@@ -557,3 +557,31 @@
   font-size: 5vh;
   color: #ffd23f;
 }
+
+/* Mystery panel, turned over on top of the wheel. */
+.mystery-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  padding: 3vh 4vw;
+  border: 0.5vh solid #ffd23f;
+  border-radius: 1.5vh;
+  background: #1f5fbf;
+  box-shadow: 0 1vh 3vh rgba(0, 0, 0, 0.6);
+  font-family: var(--font-title);
+  font-size: 6vh;
+  color: #ffd23f;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  animation: flip-in 0.5s ease-out;
+}
+
+@keyframes flip-in {
+  from {
+    transform: translate(-50%, -50%) rotateY(90deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotateY(0deg);
+  }
+}

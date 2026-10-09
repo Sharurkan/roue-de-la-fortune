@@ -8,7 +8,9 @@ export type WheelSegment =
   | { kind: 'bankrupt' }
   | { kind: 'pass' }
   /** "La Bonne Poche": two envelopes, one holds money, the other nothing. */
-  | { kind: 'pocket' };
+  | { kind: 'pocket' }
+  /** Hidden panel: either its amount per letter, or a special effect. */
+  | { kind: 'mystery'; amount: number };
 
 /** Share of the jackpot slot taken by the bankrupt on each of its edges. */
 export const JACKPOT_SIDE_SHARE = 0.25;
@@ -18,13 +20,20 @@ const BANKRUPT: WheelSegment = { kind: 'bankrupt' };
 const PASS: WheelSegment = { kind: 'pass' };
 const JACKPOT: WheelSegment = { kind: 'jackpot', amount: 5000 };
 const POCKET: WheelSegment = { kind: 'pocket' };
+const MYSTERY: WheelSegment = { kind: 'mystery', amount: 500 };
+
+/** Mystery panel: one chance in two of a special effect instead of the amount. */
+export const MYSTERY_EFFECT_CHANCE = 0.5;
+export const MYSTERY_BONUS = 1000;
+export const MYSTERY_EFFECTS = ['bonus', 'double', 'bankrupt', 'half'] as const;
+export type MysteryEffect = (typeof MYSTERY_EFFECTS)[number];
 
 /** "La Bonne Poche": the amount hidden in the winning envelope, drawn each time. */
 export const POCKET_AMOUNTS: readonly number[] = [500, 1000, 1500, 2000, 3000];
 
 /**
  * One wheel per regular round, like on TV, clockwise from 12 o'clock.
- * Round 1 has small amounts and no traps; round 3 has La Bonne Poche; round 4 has the 5 000 € jackpot, shared with two bankrupts.
+ * Round 1 has small amounts and no traps; round 3 has La Bonne Poche and the mystery panel; round 4 has the 5 000 € jackpot, shared with two bankrupts.
  */
 export const WHEELS: readonly (readonly WheelSegment[])[] = [
   [
@@ -92,7 +101,7 @@ export const WHEELS: readonly (readonly WheelSegment[])[] = [
     v(450),
     v(1000),
     v(900),
-    v(150),
+    MYSTERY,
     v(200),
     v(150),
     v(300),

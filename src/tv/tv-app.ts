@@ -1,6 +1,6 @@
 import './tv.css';
 import type { GameEvent } from '../game/events';
-import { TOSS_UP_REVEAL_INTERVAL_MS } from '../game/config';
+import { TOSS_UP_REVEAL_INTERVAL_MS, type MysteryEffect } from '../game/config';
 import { FINAL_PHRASES, PHRASES, TOSS_UP_PHRASES } from '../game/phrases';
 import { rankTeams } from '../game/ranking';
 import { reduce, type GameDeps, type ReduceResult } from '../game/reducer';
@@ -37,6 +37,8 @@ const FINAL_RESULT_PAUSE_MS = 6000;
 const TOSS_UP_RESULT_PAUSE_MS = 3000;
 /** Both envelopes stay open a while, so everyone sees where the money was. */
 const POCKET_RESULT_PAUSE_MS = 3500;
+/** The mystery panel stays turned over long enough to be read from the couch. */
+const MYSTERY_PAUSE_MS = 3000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -102,6 +104,7 @@ function isSlow(event: GameEvent): boolean {
     case 'tossUpWon':
     case 'tossUpFailed':
     case 'pocketOpened':
+    case 'mysteryRevealed':
       return true;
     default:
       return false;
@@ -192,6 +195,9 @@ export function startTv(root: HTMLElement): void {
       case 'letterFound':
         await game.board.reveal([event.letter], () => sound?.reveal());
         return;
+      case 'mysteryRevealed':
+        await showMystery(event.outcome);
+        return;
       case 'pocketOffered':
         sound?.roundStart();
         return;
@@ -254,6 +260,17 @@ export function startTv(root: HTMLElement): void {
       default:
         return;
     }
+  }
+
+  async function showMystery(outcome: MysteryEffect | 'money'): Promise<void> {
+    game.showMystery(TV_TEXTS.mystery[outcome]);
+    if (outcome === 'bankrupt' || outcome === 'half') {
+      sound?.bankrupt();
+      game.flash();
+    } else if (outcome === 'money') sound?.reveal();
+    else sound?.win();
+    await wait(MYSTERY_PAUSE_MS);
+    game.showMystery(null);
   }
 
   async function present(result: ReduceResult): Promise<void> {
