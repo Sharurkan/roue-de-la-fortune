@@ -136,7 +136,7 @@ function showController(root: HTMLElement, code: string): void {
 
   function renderBody(current: PublicView): void {
     const screen = describeScreen(current);
-    const enabled = status.kind === 'connected' && !pending;
+    const enabled = status.kind === 'connected' && !pending && !current.busy;
     // Rebuilding the screen would wipe what is being typed: only do it when something changed.
     const key = JSON.stringify({ screen, enabled, confirming, setup: setup.teamCount, current });
     if (key === renderedKey) return;

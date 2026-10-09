@@ -133,12 +133,12 @@ Phrases
 - Saisie de la solution avec « Valider » et « Annuler ».
 - Fin de manche : « Manche suivante » (« Passer à la finale » après la 4e manche).
 - Finale : « Tourner la roue des enveloppes », clavier de 3 consonnes et 1 voyelle, une seule réponse.
-- Boutons grisés pendant que la roue tourne.
+- Boutons grisés tant que la TV anime (roue, lettres, révélation de la réponse).
 - Gros boutons, utilisable d'une main.
 
 ## Protocole
 
-- Version actuelle du protocole : 3.
+- Version actuelle du protocole : 4.
 - Téléphone → TV : `{ v, type: "action", action }`.
 - TV → téléphone : `{ v, type: "state", view }`. La `view` ne contient jamais la solution, ni l'enveloppe de la finale avant la fin.
 - Dans les deux sens : `{ v, type: "heartbeat" }` toutes les 5 s. Sans aucun message pendant 15 s, la connexion est considérée comme perdue.

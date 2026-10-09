@@ -129,6 +129,8 @@ export const publicViewSchema = z.object({
   finalPicks: z.nullable(z.object({ consonants: index, vowels: index })),
   finalResult: z.nullable(z.object({ finalist: index, won: z.boolean(), prize: prizeSchema })),
   lastEvents: z.array(gameEventSchema).check(z.maxLength(MAX_EVENTS)),
+  /** True while the TV still animates (wheel, letters…): the phone waits before the next action. */
+  busy: z.boolean(),
 });
 
 export type PublicView = z.infer<typeof publicViewSchema>;
@@ -151,6 +153,7 @@ const EMPTY_VIEW: PublicView = {
   finalPicks: null,
   finalResult: null,
   lastEvents: [],
+  busy: false,
 };
 
 function publicTeams(teams: readonly Team[]): PublicView['teams'] {
@@ -222,21 +225,29 @@ function gameOverView(state: GameOverState): PublicView {
   };
 }
 
-export function toPublicView(state: GameState, lastEvents: readonly GameEvent[]): PublicView {
-  // The drawn envelope stays a surprise until the end of the final.
-  const events = lastEvents.filter((event) => event.type !== 'prizeWheelSpun').slice(-MAX_EVENTS);
+function phaseView(state: GameState): PublicView {
   switch (state.phase) {
     case 'setup':
-      return { ...EMPTY_VIEW, lastEvents: events };
+      return EMPTY_VIEW;
     case 'tossUp':
-      return { ...tossUpView(state), lastEvents: events };
+      return tossUpView(state);
     case 'playing':
-      return { ...playingView(state), lastEvents: events };
+      return playingView(state);
     case 'roundOver':
-      return { ...roundView(state), winner: state.winner, lastEvents: events };
+      return { ...roundView(state), winner: state.winner };
     case 'final':
-      return { ...finalView(state), lastEvents: events };
+      return finalView(state);
     case 'gameOver':
-      return { ...gameOverView(state), lastEvents: events };
+      return gameOverView(state);
   }
+}
+
+export function toPublicView(
+  state: GameState,
+  lastEvents: readonly GameEvent[],
+  busy = false,
+): PublicView {
+  // The drawn envelope stays a surprise until the end of the final.
+  const events = lastEvents.filter((event) => event.type !== 'prizeWheelSpun').slice(-MAX_EVENTS);
+  return { ...phaseView(state), lastEvents: events, busy };
 }

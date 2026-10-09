@@ -76,6 +76,13 @@ describe('toPublicView', () => {
     ]);
   });
 
+  it('tells the phone when the TV is still animating', () => {
+    expect(toPublicView(INITIAL_STATE, []).busy).toBe(false);
+    const view = toPublicView(INITIAL_STATE, [], true);
+    expect(view.busy).toBe(true);
+    expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+  });
+
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [...START, { type: 'spin' }]);

@@ -86,6 +86,24 @@ function needsTossUpLetter(state: GameState): boolean {
   );
 }
 
+/** Events whose animation takes time: the phone waits for the TV until they are over. */
+function isSlow(event: GameEvent): boolean {
+  switch (event.type) {
+    case 'wheelSpun':
+    case 'prizeWheelSpun':
+    case 'letterFound':
+    case 'finalLettersGiven':
+    case 'finalLettersRevealed':
+    case 'finalWon':
+    case 'finalLost':
+    case 'tossUpWon':
+    case 'tossUpFailed':
+      return true;
+    default:
+      return false;
+  }
+}
+
 function teamNameIn(state: GameState): (team: number) => string {
   return (team) => (state.phase === 'setup' ? '' : (state.teams[team]?.name ?? ''));
 }
@@ -129,6 +147,8 @@ export function startTv(root: HTMLElement): void {
   let connection: ConnectionStatus = { kind: 'waiting' };
   let presentation: Promise<void> = Promise.resolve();
   let tossUpTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Slow animations queued or playing on the TV. */
+  let slowAnimations = 0;
 
   function updateCorner(): void {
     const soundHint = sound !== null && !sound.isUnlocked() ? TV_TEXTS.soundHint : '';
@@ -244,20 +264,38 @@ export function startTv(root: HTMLElement): void {
     }, TOSS_UP_REVEAL_INTERVAL_MS);
   }
 
-  function dispatch(action: GameAction): void {
-    clearTimeout(tossUpTimer);
-    const result = reduce(state, action, GAME_DEPS);
-    state = result.state;
-    warnings.game = saveGame(state) ? '' : TV_TEXTS.saveFailed;
-    updateCorner();
-    host.send(stateMessage(toPublicView(state, result.events)));
+  function sendView(events: readonly GameEvent[]): void {
+    host.send(stateMessage(toPublicView(state, events, slowAnimations > 0)));
+  }
+
+  /** Queues the animations of a result. The phone is told when the slow ones are over. */
+  function queuePresentation(result: ReduceResult): void {
+    const slow = result.events.some(isSlow);
+    if (slow) slowAnimations += 1;
     // A failed animation must not block the next ones: show the final state instead.
     presentation = presentation
       .then(() => present(result))
       .catch(() => {
         render(state);
       })
-      .then(scheduleTossUpLetter);
+      .then(() => {
+        if (slow) {
+          slowAnimations -= 1;
+          if (slowAnimations === 0) sendView([]);
+        }
+        scheduleTossUpLetter();
+      });
+  }
+
+  function dispatch(action: GameAction): void {
+    clearTimeout(tossUpTimer);
+    const result = reduce(state, action, GAME_DEPS);
+    state = result.state;
+    warnings.game = saveGame(state) ? '' : TV_TEXTS.saveFailed;
+    updateCorner();
+    // Queued first, so that this view already says whether the TV is busy.
+    queuePresentation(result);
+    sendView(result.events);
   }
 
   const host = startHost<PhoneMessage, TvMessage>({
@@ -273,7 +311,7 @@ export function startTv(root: HTMLElement): void {
       updateCorner();
       if (status.kind !== 'connected') return;
       warnings.controller = '';
-      host.send(stateMessage(toPublicView(state, [])));
+      sendView([]);
     },
     decode: parsePhoneMessage,
     heartbeat: HEARTBEAT,
@@ -312,7 +350,7 @@ export function startTv(root: HTMLElement): void {
     if (boardPhrase(state) === null) return;
     game.showMessage(TV_TEXTS.gameResumed);
     const events = interruptedSpin(state);
-    if (events.length > 0) presentation = present({ state, events });
+    if (events.length > 0) queuePresentation({ state, events });
     scheduleTossUpLetter();
   }
 }

@@ -152,8 +152,8 @@
 }
 
 .key:disabled {
-  background: var(--trim-dark);
-  color: var(--trim-main);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.22);
   opacity: 1;
 }
 
