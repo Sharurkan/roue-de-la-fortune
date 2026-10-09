@@ -37,6 +37,7 @@ import type { GameAction, GameState, PlayingState, Round, SlotPart } from './sta
 import { isSameAnswer, normalizeAnswer } from './text';
 import { revealMystery } from './mystery';
 import { offerPocket, openPocket } from './pocket';
+import { applyTeamEffect, offerTeamEffect } from './team-effect';
 import { passTurn } from './round';
 import { isValidPower, positionAfter, slotAt, spinTravel, travelTo, wheelForRound } from './wheel';
 import { buzz, revealTossUpLetter, startTossUp, submitTossUpAnswer } from './toss-up';
@@ -57,6 +58,10 @@ export function reduce(state: GameState, action: GameAction, deps: GameDeps): Re
       return spinEnded(state, deps);
     case 'choosePocket':
       return choosePocket(state, action.color);
+    case 'chooseTeam':
+      return state.phase === 'playing'
+        ? applyTeamEffect(state, action.team)
+        : reject(state, 'wrongPhase');
     case 'guessConsonant':
       return guessConsonant(state, action.letter);
     case 'buyVowel':
@@ -186,6 +191,9 @@ function spinEnded(state: GameState, deps: GameDeps): ReduceResult {
       return offerPocket(state, deps);
     case 'mystery':
       return revealMystery(state, segment.amount, deps);
+    case 'swap':
+    case 'divide':
+      return offerTeamEffect(state, segment.kind);
     case undefined:
       return reject(state, 'wrongPhase');
   }
@@ -201,8 +209,12 @@ function guessConsonant(state: GameState, input: string): ReduceResult {
   if (state.round.guessedLetters.includes(letter)) {
     return passTurn(state, [{ type: 'letterAlreadyCalled', letter }]);
   }
-  const { amount, perLetter } = state.step;
-  return revealLetter(state, letter, (count) => (perLetter ? amount * count : amount), []);
+  const { amount, perLetter, effect } = state.step;
+  const result = revealLetter(state, letter, (count) => (perLetter ? amount * count : amount), []);
+  // A right consonant on swap or divide: the team now picks the other team.
+  const found = result.events.some((event) => event.type === 'letterFound');
+  if (effect === undefined || !found || result.state.phase !== 'playing') return result;
+  return { ...result, state: { ...result.state, step: { kind: 'choosingTeam', effect } } };
 }
 
 function buyVowel(state: GameState): ReduceResult {

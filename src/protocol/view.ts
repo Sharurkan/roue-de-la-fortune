@@ -4,6 +4,7 @@ import {
   FINAL_PRIZES,
   MAX_TEAM_NAME_LENGTH,
   MAX_TEAMS,
+  TEAM_EFFECTS,
   type Prize,
 } from '../game/config';
 import type { GameEvent } from '../game/events';
@@ -48,6 +49,13 @@ const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('bankrupt'), team: index }),
   z.object({ type: z.literal('landedOnPass'), team: index }),
   z.object({ type: z.literal('pocketOffered'), team: index }),
+  z.object({ type: z.literal('effectLanded'), team: index, effect: z.enum(TEAM_EFFECTS) }),
+  z.object({
+    type: z.literal('effectApplied'),
+    team: index,
+    target: index,
+    effect: z.enum(TEAM_EFFECTS),
+  }),
   z.object({
     type: z.literal('mysteryRevealed'),
     team: index,
@@ -139,6 +147,7 @@ export const publicViewSchema = z.object({
       'guessingConsonant',
       'guessingVowel',
       'choosingPocket',
+      'choosingTeam',
       'solving',
       'prizeWheel',
       'prizeSpinning',
@@ -146,6 +155,8 @@ export const publicViewSchema = z.object({
     ]),
   ),
   consonantValue: z.nullable(amount),
+  /** Swap or divide slot: during the consonant, then while choosing the other team. */
+  teamEffect: z.nullable(z.enum(TEAM_EFFECTS)),
   guessedLetters: letters,
   canSpin: z.boolean(),
   canBuyVowel: z.boolean(),
@@ -174,6 +185,7 @@ const EMPTY_VIEW: PublicView = {
   activeTeam: null,
   step: null,
   consonantValue: null,
+  teamEffect: null,
   guessedLetters: [],
   canSpin: false,
   canBuyVowel: false,
@@ -211,9 +223,16 @@ function playingView(state: PlayingState): PublicView {
     ...roundView(state),
     step: state.step.kind,
     consonantValue: state.step.kind === 'guessingConsonant' ? state.step.amount : null,
+    teamEffect: teamEffect(state),
     canSpin: choosing && hasHiddenConsonants(state.round),
     canBuyVowel: choosing && activeTeamCanBuyVowel(state),
   };
+}
+
+function teamEffect(state: PlayingState): PublicView['teamEffect'] {
+  if (state.step.kind === 'choosingTeam') return state.step.effect;
+  if (state.step.kind === 'guessingConsonant') return state.step.effect ?? null;
+  return null;
 }
 
 function tossUpView(state: TossUpState): PublicView {

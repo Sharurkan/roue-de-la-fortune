@@ -68,6 +68,7 @@ describe('describeScreen', () => {
     expect(screenAfter([...START, { type: 'spin' }, { type: 'spinEnded' }])).toEqual({
       kind: 'consonant',
       value: 150,
+      effect: null,
     });
   });
 

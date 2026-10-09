@@ -1,3 +1,4 @@
+import type { TeamEffect } from './config';
 import type { Phrase } from './phrases';
 
 export interface Team {
@@ -25,7 +26,14 @@ export type TurnStep =
   /** from and travel, in segments, let the TV replay the spin exactly. */
   | { kind: 'spinning'; segmentIndex: number; part: SlotPart; from: number; travel: number }
   /** perLetter is false for the jackpot: its amount is won once, not per letter. */
-  | { kind: 'guessingConsonant'; amount: number; perLetter: boolean }
+  /** effect: the swap or divide slot, applied once a right consonant is found. */
+  | {
+      kind: 'guessingConsonant';
+      amount: number;
+      perLetter: boolean;
+      effect?: TeamEffect | undefined;
+    }
+  | { kind: 'choosingTeam'; effect: TeamEffect }
   /** The phone never learns which envelope wins nor its amount. */
   | { kind: 'choosingPocket'; winning: PocketColor; amount: number }
   | { kind: 'guessingVowel' }
@@ -124,6 +132,7 @@ export type GameAction =
   | { type: 'spinEnded' }
   | { type: 'guessConsonant'; letter: string }
   | { type: 'choosePocket'; color: PocketColor }
+  | { type: 'chooseTeam'; team: number }
   | { type: 'buyVowel' }
   | { type: 'guessVowel'; letter: string }
   | { type: 'startSolving' }

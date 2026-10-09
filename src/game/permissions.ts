@@ -43,6 +43,7 @@ export function actionOwner(state: GameState, action: GameAction): ActionOwner |
     case 'spin':
     case 'guessConsonant':
     case 'choosePocket':
+    case 'chooseTeam':
     case 'buyVowel':
     case 'guessVowel':
     case 'startSolving':

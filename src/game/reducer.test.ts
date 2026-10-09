@@ -265,10 +265,19 @@ describe('wheels', () => {
     expect(WHEELS[0]?.every((segment) => segment.kind === 'value')).toBe(true);
   });
 
-  it('round 4 has the 5 000 € jackpot at noon, and no other bankrupt', () => {
+  it('round 4: jackpot at noon, swap, divide, one bankrupt and one pass', () => {
     const wheel = WHEELS[3] ?? [];
     expect(wheel[0]).toEqual({ kind: 'jackpot', amount: 5000 });
-    expect(wheel.some((segment) => segment.kind === 'bankrupt')).toBe(false);
+    const special = wheel.flatMap((segment, i) =>
+      segment.kind === 'value' ? [] : [[i, segment.kind]],
+    );
+    expect(special).toEqual([
+      [0, 'jackpot'],
+      [5, 'swap'],
+      [10, 'divide'],
+      [11, 'bankrupt'],
+      [18, 'pass'],
+    ]);
   });
 
   it('spins the wheel of the current round', () => {

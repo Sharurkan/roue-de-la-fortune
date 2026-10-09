@@ -151,7 +151,8 @@ function bannerText(result: ReduceResult): string | null {
     .filter((message): message is string => message !== null);
   if (messages.length > 0) return messages.join(' · ');
   if (state.phase === 'playing' && state.step.kind === 'guessingConsonant') {
-    return TV_TEXTS.consonantFor(state.step.amount);
+    const { effect, amount } = state.step;
+    return effect === undefined ? TV_TEXTS.consonantFor(amount) : TV_TEXTS.effectConsonant(effect);
   }
   return null;
 }
@@ -237,7 +238,11 @@ export function startTv(root: HTMLElement): void {
         await showMystery(event.outcome);
         return;
       case 'pocketOffered':
+      case 'effectLanded':
         sound?.roundStart();
+        return;
+      case 'effectApplied':
+        sound?.win();
         return;
       case 'pocketOpened':
         game.openPockets(event.winning, event.amount);

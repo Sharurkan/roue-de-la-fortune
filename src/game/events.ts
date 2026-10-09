@@ -1,4 +1,4 @@
-import type { MysteryEffect } from './config';
+import type { MysteryEffect, TeamEffect } from './config';
 import type { PocketColor, SlotPart } from './state';
 
 export type RejectionReason =
@@ -30,6 +30,8 @@ export type GameEvent =
   | { type: 'bankrupt'; team: number }
   | { type: 'landedOnPass'; team: number }
   | { type: 'pocketOffered'; team: number }
+  | { type: 'effectLanded'; team: number; effect: TeamEffect }
+  | { type: 'effectApplied'; team: number; target: number; effect: TeamEffect }
   /** 'money': the panel only hides its amount, played like a normal value. */
   | { type: 'mysteryRevealed'; team: number; outcome: MysteryEffect | 'money' }
   | {

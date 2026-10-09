@@ -1,4 +1,10 @@
-import { FINAL_PRIZES, STAKE_ROUND, type MysteryEffect, type Prize } from '../game/config';
+import {
+  FINAL_PRIZES,
+  STAKE_ROUND,
+  type MysteryEffect,
+  type Prize,
+  type TeamEffect,
+} from '../game/config';
 import type { GameEvent } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -72,7 +78,22 @@ export const TV_TEXTS = {
   rank: (rank: number) => (rank === 1 ? '1er' : `${String(rank)}e`),
   newGameOnPhone: 'Nouvelle partie depuis le téléphone',
   updateController: 'Manette pas à jour : recharge la page sur le téléphone',
-  wheel: { bankrupt: 'BANQUEROUTE', pass: 'PASSE', pocketCaption: 'LA BONNE', pocket: 'POCHE' },
+  wheel: {
+    bankrupt: 'BANQUEROUTE',
+    pass: 'PASSE',
+    pocketCaption: 'LA BONNE',
+    pocket: 'POCHE',
+    swap: 'ECHANGE',
+    divide: 'DIVISEUR',
+  },
+  effectConsonant: (effect: TeamEffect) =>
+    effect === 'swap'
+      ? 'Échange : une bonne consonne, et on échange sa cagnotte'
+      : 'Diviseur : une bonne consonne, et on divise une cagnotte par 2',
+  chooseTeamHint: (effect: TeamEffect) =>
+    effect === 'swap'
+      ? 'Sur le téléphone : avec quelle équipe échanger ?'
+      : 'Sur le téléphone : quelle cagnotte diviser par 2 ?',
   pocketHint: 'Sur le téléphone : enveloppe rouge ou bleue ?',
   pocketRed: 'Rouge',
   pocketBlue: 'Bleue',
@@ -132,6 +153,14 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
       return mysteryMessage(event.outcome, teamName(event.team));
     case 'pocketOffered':
       return `La Bonne Poche ! ${teamName(event.team)}, rouge ou bleue ?`;
+    case 'effectLanded':
+      return event.effect === 'swap'
+        ? `ÉCHANGE ! ${teamName(event.team)}, une bonne consonne pour échanger ta cagnotte`
+        : `DIVISEUR ! ${teamName(event.team)}, une bonne consonne pour diviser une cagnotte`;
+    case 'effectApplied':
+      return event.effect === 'swap'
+        ? `${teamName(event.team)} échange sa cagnotte avec ${teamName(event.target)} !`
+        : `DIVISEUR ! ${teamName(event.target)} perd la moitié de sa cagnotte`;
     case 'pocketOpened':
       return event.chosen === event.winning
         ? `Bonne poche ! ${teamName(event.team)} gagne ${euros(event.amount)}`

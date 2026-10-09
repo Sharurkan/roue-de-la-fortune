@@ -7,6 +7,7 @@ import {
   MIN_TEAMS,
   VOWEL_COST,
   VOWELS,
+  type TeamEffect,
 } from '../game/config';
 import type { PhoneAction } from '../protocol/actions';
 import type { PlayMode, RoomView } from '../protocol/room';
@@ -449,6 +450,27 @@ function prizeWheelScreen(context: ScreenContext, spinning: boolean): HTMLElemen
   ]);
 }
 
+/** Swap or divide: one button per other team, with its round score. */
+function chooseTeamScreen(context: ScreenContext, effect: TeamEffect): HTMLElement {
+  const { view } = context;
+  return createElement('div', { className: 'screen' }, [
+    createElement('p', { className: 'headline', text: texts.chooseTeam(effect) }),
+    ...view.teams.flatMap((team, index) =>
+      index === view.activeTeam
+        ? []
+        : [
+            button(
+              `${team.name} : ${texts.euros(team.roundScore)}`,
+              () => {
+                context.send({ type: 'chooseTeam', team: index });
+              },
+              { disabled: !context.enabled },
+            ),
+          ],
+    ),
+  ]);
+}
+
 function finalPickingScreen(
   context: ScreenContext,
   consonantsLeft: number,
@@ -677,7 +699,13 @@ function gameScreen(screen: PhoneScreen, context: ScreenContext): HTMLElement {
       ]);
     case 'consonant':
       return createElement('div', { className: 'screen' }, [
-        createElement('p', { className: 'headline', text: texts.chooseConsonant(screen.value) }),
+        createElement('p', {
+          className: 'headline',
+          text:
+            screen.effect === null
+              ? texts.chooseConsonant(screen.value)
+              : texts.effectConsonant(screen.effect),
+        }),
         keyboard(context, CONSONANTS, (letter) => ({ type: 'guessConsonant', letter })),
       ]);
     case 'pocket':
@@ -698,6 +726,8 @@ function gameScreen(screen: PhoneScreen, context: ScreenContext): HTMLElement {
           { className: 'big-button pocket-blue', disabled: !context.enabled },
         ),
       ]);
+    case 'chooseTeam':
+      return chooseTeamScreen(context, screen.effect);
     case 'vowel':
       return createElement('div', { className: 'screen' }, [
         createElement('p', { className: 'headline', text: texts.chooseVowel }),

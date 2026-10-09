@@ -1,4 +1,4 @@
-import type { MysteryEffect, Prize, WheelSegment } from '../game/config';
+import type { MysteryEffect, Prize, TeamEffect, WheelSegment } from '../game/config';
 import type { SlotPart } from '../game/state';
 import type { GameEvent, RejectionReason } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
@@ -38,6 +38,10 @@ export const PHONE_TEXTS = {
         return 'La Bonne Poche';
       case 'mystery':
         return 'Mystère';
+      case 'swap':
+        return 'Échange';
+      case 'divide':
+        return 'Diviseur';
     }
   },
   firstRoundChoice: (round: number, isFinal: boolean) => (isFinal ? 'Finale' : String(round)),
@@ -58,6 +62,12 @@ export const PHONE_TEXTS = {
   chooseConsonant: (value: number) => `Pour ${euros(value)} : choisis une consonne`,
   chooseVowel: 'Choisis une voyelle',
   choosePocket: 'La Bonne Poche : quelle enveloppe ?',
+  effectConsonant: (effect: TeamEffect) =>
+    effect === 'swap'
+      ? 'Échange : une bonne consonne, et tu échanges ta cagnotte'
+      : 'Diviseur : une bonne consonne, et tu divises une cagnotte par 2',
+  chooseTeam: (effect: TeamEffect) =>
+    effect === 'swap' ? 'Avec quelle équipe échanger ?' : 'Quelle cagnotte diviser par 2 ?',
   redPocket: 'Enveloppe rouge',
   bluePocket: 'Enveloppe bleue',
   solutionLabel: 'Ta réponse',
@@ -181,6 +191,12 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
       return MYSTERY_TEXTS[event.outcome];
     case 'pocketOffered':
       return 'La Bonne Poche !';
+    case 'effectLanded':
+      return event.effect === 'swap' ? 'Échange !' : 'Diviseur !';
+    case 'effectApplied':
+      return event.effect === 'swap'
+        ? `${teamName(event.team)} et ${teamName(event.target)} échangent leur cagnotte`
+        : `${teamName(event.target)} perd la moitié de sa cagnotte`;
     case 'pocketOpened':
       return event.chosen === event.winning
         ? `Bonne poche : +${euros(event.amount)}`

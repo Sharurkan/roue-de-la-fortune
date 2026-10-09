@@ -34,6 +34,8 @@ const GOLD = '#ffd23f';
 const JACKPOT_FILL = GOLD;
 const POCKET_BLUE = '#1f5fbf';
 const POCKET_RED = '#d7263d';
+/** White letters on white: only their dark mauve outline draws them. */
+const DIVIDE_OUTLINE = '#3d1458';
 const FIRST_DIGIT_RADIUS = 82;
 /** Stacked words stop before the hub. */
 const LAST_LETTER_RADIUS = 22;
@@ -58,6 +60,8 @@ export interface WheelFace {
     | { kind: 'envelope' }
     /** Small caption near the rim, then a bigger word along the radius. */
     | { kind: 'caption'; caption: string; captionInk: string; text: string };
+  /** Outline of the label letters, black by default. */
+  outline?: string;
   /** Segment cut in two along its length, with a colour on each side. */
   halves?: { left: string; right: string };
   /** Narrow slices on both edges of the segment (the jackpot's bankrupts), as a share of it. */
@@ -112,6 +116,19 @@ export function segmentFaces(segments: readonly WheelSegment[]): WheelFace[] {
           ink: '#ffffff',
           label: { kind: 'digits', text: `?${String(segment.amount)}€`, leadInk: GOLD },
         };
+      case 'swap':
+        return {
+          fill: '#15151a',
+          ink: GOLD,
+          label: { kind: 'word', text: TV_TEXTS.wheel.swap, size: 8 },
+        };
+      case 'divide':
+        return {
+          fill: '#ffffff',
+          ink: '#ffffff',
+          outline: DIVIDE_OUTLINE,
+          label: { kind: 'word', text: TV_TEXTS.wheel.divide, size: 7 },
+        };
       case 'jackpot':
         return {
           fill: JACKPOT_FILL,
@@ -153,12 +170,22 @@ function wordLayout(length: number, start = FIRST_DIGIT_RADIUS, size?: number): 
   return { start, step, size: Math.min(WORD_MAX_SIZE, step * 1.2) };
 }
 
+/**
+ * Small letters get a thinner outline, so that they do not blur. A coloured
+ * outline is thicker: it draws the letters on a background of their own colour.
+ */
+function outlineStyle(size: number, outline: string | undefined): string {
+  if (outline === undefined) return `stroke-width: ${String(Math.min(1.6, size * 0.1))}px`;
+  return `stroke-width: ${String(size * 0.3)}px; stroke: ${outline}`;
+}
+
 /** Characters written like on TV: one under the other, from the rim inwards, upright. */
 function stackedLabel(
   text: string,
   color: string,
   layout: StackLayout = DIGIT_LAYOUT,
   leadInk = color,
+  outline?: string,
 ): SVGTextElement[] {
   return Array.from(text, (char, i) => {
     // The euro sign reads as a unit, not a digit: it is drawn smaller.
@@ -168,8 +195,7 @@ function stackedLabel(
       fill: i === 0 ? leadInk : color,
       class: 'wheel-digit',
       // The stylesheet sets the digit size; smaller words override it.
-      // Small letters get a thinner outline, so that they do not blur.
-      style: `font-size: ${String(size)}px; stroke-width: ${String(Math.min(1.6, size * 0.1))}px`,
+      style: `font-size: ${String(size)}px; ${outlineStyle(size, outline)}`,
       'text-anchor': 'middle',
       'dominant-baseline': 'central',
     });
@@ -213,6 +239,8 @@ function faceLabel(face: WheelFace): SVGElement[] {
           face.label.text.length >= LONG_WORD_LENGTH ? LONG_WORD_START : FIRST_DIGIT_RADIUS,
           face.label.size,
         ),
+        face.ink,
+        face.outline,
       );
     case 'envelope':
       return [envelopeIcon()];

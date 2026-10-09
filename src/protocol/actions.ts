@@ -36,6 +36,10 @@ export const phoneActionSchema: z.ZodMiniType<PhoneAction> = z.discriminatedUnio
   }),
   z.object({ type: z.literal('guessConsonant'), letter: letterSchema }),
   z.object({ type: z.literal('choosePocket'), color: z.enum(['red', 'blue']) }),
+  z.object({
+    type: z.literal('chooseTeam'),
+    team: z.int().check(z.minimum(0), z.maximum(MAX_TEAMS - 1)),
+  }),
   z.object({ type: z.literal('buyVowel') }),
   z.object({ type: z.literal('guessVowel'), letter: letterSchema }),
   z.object({ type: z.literal('startSolving') }),

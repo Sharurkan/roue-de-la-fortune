@@ -329,13 +329,16 @@ export function createGameScreen(onTick: () => void): GameScreen {
     letters.textContent = `${TV_TEXTS.usedLetters} : ${used === '' ? TV_TEXTS.noUsedLetters : used}`;
     const choosingPocket = state.phase === 'playing' && state.step.kind === 'choosingPocket';
     pockets.show(choosingPocket);
+    const choosingTeam = state.phase === 'playing' && state.step.kind === 'choosingTeam';
     const alert = state.phase === 'playing' ? exhaustedLetters(round) : '';
     hint.textContent = choosingPocket
       ? TV_TEXTS.pocketHint
-      : state.phase === 'roundOver'
-        ? TV_TEXTS.waitingForNextRound
-        : alert;
-    hint.classList.toggle('alert', !choosingPocket && alert !== '');
+      : state.phase === 'playing' && state.step.kind === 'choosingTeam'
+        ? TV_TEXTS.chooseTeamHint(state.step.effect)
+        : state.phase === 'roundOver'
+          ? TV_TEXTS.waitingForNextRound
+          : alert;
+    hint.classList.toggle('alert', !choosingPocket && !choosingTeam && alert !== '');
   }
 
   return {

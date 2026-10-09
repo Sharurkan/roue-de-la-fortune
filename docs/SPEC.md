@@ -54,7 +54,8 @@ Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 - Manche 1 : petites sommes, aucun piège.
 - Manche 2 : une case PASSE.
 - Manche 3 : une BANQUEROUTE, une PASSE, la case « La Bonne Poche » à midi et la case Mystère à 6 h.
-- Manche 4 : une case partagée à midi (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE) et une PASSE à 16 h.
+- Manche 4 (cases numérotées de 1 à midi à 24, dans le sens des aiguilles d'une montre) : en 1 une case partagée (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE), en 6 ÉCHANGE (fond noir, lettres dorées), en 11 DIVISEUR (fond blanc, lettres blanches au contour mauve foncé), en 12 BANQUEROUTE, en 19 PASSE.
+- Échange et Diviseur : l'équipe propose une consonne, qui ne rapporte rien. Absente (ou déjà proposée) : la main passe, sans effet. Présente : l'équipe choisit obligatoirement une autre équipe sur le téléphone. Échange : les deux équipes échangent leur score de manche. Diviseur : le score de manche de l'équipe choisie est divisé par 2 (arrondi en dessous). Puis l'équipe rejoue.
 - La Bonne Poche : deux enveloppes, une rouge et une bleue. L'une contient une somme tirée au hasard (500 à 3 000 €), l'autre rien ; l'enveloppe gagnante est tirée à chaque fois. Bonne enveloppe : la somme s'ajoute au score de manche et l'équipe rejoue. Enveloppe vide : la main passe.
 - Mystère (case bleue, « ? » doré puis 500 €) : le panneau se retourne. Une fois sur deux, 500 € par consonne comme une case normale. Sinon un effet tiré au hasard : +1 000 € ou score de manche doublé (l'équipe rejoue), banqueroute (comme la case BANQUEROUTE) ou moitié du score de manche perdue (la main passe).
 - Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
@@ -172,7 +173,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 10.
+- Version actuelle du protocole : 11.
 - Téléphone → TV :
   - `{ v, type: "hello", clientId }` au début de chaque connexion ;
   - `{ v, type: "chooseMode", mode }`, `{ v, type: "joinTeam", name }`, `{ v, type: "removeTeam", team }` avant la partie ;

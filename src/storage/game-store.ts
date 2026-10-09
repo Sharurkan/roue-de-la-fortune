@@ -1,5 +1,11 @@
 import * as z from 'zod/mini';
-import { FINAL_PRIZES, MAX_TEAM_NAME_LENGTH, MAX_TEAMS, MIN_TEAMS } from '../game/config';
+import {
+  FINAL_PRIZES,
+  MAX_TEAM_NAME_LENGTH,
+  MAX_TEAMS,
+  MIN_TEAMS,
+  TEAM_EFFECTS,
+} from '../game/config';
 import { THEMES } from '../game/phrases';
 import type { GameState } from '../game/state';
 
@@ -35,7 +41,13 @@ const stepSchema = z.discriminatedUnion('kind', [
     from: distance,
     travel: distance,
   }),
-  z.object({ kind: z.literal('guessingConsonant'), amount: count, perLetter: z.boolean() }),
+  z.object({
+    kind: z.literal('guessingConsonant'),
+    amount: count,
+    perLetter: z.boolean(),
+    effect: z.optional(z.enum(TEAM_EFFECTS)),
+  }),
+  z.object({ kind: z.literal('choosingTeam'), effect: z.enum(TEAM_EFFECTS) }),
   z.object({
     kind: z.literal('choosingPocket'),
     winning: z.enum(['red', 'blue']),

@@ -1,4 +1,4 @@
-import { ROUND_COUNT, type WheelSegment } from '../game/config';
+import { ROUND_COUNT, type TeamEffect, type WheelSegment } from '../game/config';
 import type { SlotPart } from '../game/state';
 import { wheelForRound } from '../game/wheel';
 import type { RoomView } from '../protocol/room';
@@ -17,7 +17,8 @@ export type PhoneScreen =
       noMoreVowels: boolean;
     }
   | { kind: 'spinning' }
-  | { kind: 'consonant'; value: number }
+  | { kind: 'consonant'; value: number; effect: TeamEffect | null }
+  | { kind: 'chooseTeam'; effect: TeamEffect }
   | { kind: 'vowel' }
   | { kind: 'pocket' }
   | { kind: 'solving' }
@@ -33,7 +34,9 @@ function roundScreen(view: PublicView): PhoneScreen {
     case 'spinning':
       return { kind: 'spinning' };
     case 'guessingConsonant':
-      return { kind: 'consonant', value: view.consonantValue ?? 0 };
+      return { kind: 'consonant', value: view.consonantValue ?? 0, effect: view.teamEffect };
+    case 'choosingTeam':
+      return { kind: 'chooseTeam', effect: view.teamEffect ?? 'swap' };
     case 'guessingVowel':
       return { kind: 'vowel' };
     case 'choosingPocket':
