@@ -3,7 +3,8 @@ import { PHRASES } from '../game/phrases';
 import { reduce, type GameDeps } from '../game/reducer';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
 import { toPublicView } from '../protocol/view';
-import { describeScreen, forcedSpinOptions, letterKeys, teamNamesFor } from './controls';
+import type { RoomView } from '../protocol/room';
+import { describeScreen, forcedSpinOptions, letterKeys, phoneRole, teamNamesFor } from './controls';
 
 const DEPS: GameDeps = {
   random: () => 0,
@@ -182,5 +183,65 @@ describe('forcedSpinOptions', () => {
   it('offers both the middle and the edge of the jackpot', () => {
     const jackpot = forcedSpinOptions(4, label).filter((option) => option.segmentIndex === 0);
     expect(jackpot.map((option) => option.part)).toEqual(['middle', 'left']);
+  });
+});
+
+describe('phoneRole', () => {
+  const viewAfter = (actions: GameAction[]) => {
+    let state: GameState = INITIAL_STATE;
+    for (const action of actions) state = reduce(state, action, DEPS).state;
+    return toPublicView(state, []);
+  };
+  const seats = [
+    { name: 'A', connected: true },
+    { name: 'B', connected: true },
+  ];
+  const room = (team: number, isMaster = false, seatList = seats): RoomView => ({
+    mode: 'multi',
+    isMaster,
+    team,
+    seats: seatList,
+  });
+  const playing = viewAfter(START);
+
+  it('lets a single phone do everything', () => {
+    const single: RoomView = { mode: 'single', isMaster: true, team: null, seats: [] };
+    expect(phoneRole(playing, single, null)).toEqual({
+      canPlay: true,
+      canManage: true,
+      waitingFor: null,
+      canStandIn: false,
+    });
+  });
+
+  it('lets only the team whose turn it is play', () => {
+    expect(phoneRole(playing, room(0), null).canPlay).toBe(true);
+    expect(phoneRole(playing, room(1), null)).toEqual({
+      canPlay: false,
+      canManage: false,
+      waitingFor: 0,
+      canStandIn: false,
+    });
+  });
+
+  it('lets every team buzz on its own phone', () => {
+    const buzzing = viewAfter([START_GAME]);
+    expect(phoneRole(buzzing, room(1), null).canPlay).toBe(true);
+  });
+
+  it('keeps game management to the master', () => {
+    expect(phoneRole(playing, room(1, true), null).canManage).toBe(true);
+    expect(phoneRole(playing, room(0), null).canManage).toBe(false);
+  });
+
+  it('lets the master stand in for a disconnected team, once asked', () => {
+    const offline = [
+      { name: 'A', connected: false },
+      { name: 'B', connected: true },
+    ];
+    const master = room(1, true, offline);
+    expect(phoneRole(playing, master, null)).toMatchObject({ canPlay: false, canStandIn: true });
+    expect(phoneRole(playing, master, 0)).toMatchObject({ canPlay: true, waitingFor: null });
+    expect(phoneRole(playing, room(1, true), 0).canPlay).toBe(false);
   });
 });

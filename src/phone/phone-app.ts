@@ -6,18 +6,24 @@ import { isValidRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from '../net/roo
 import type { PhoneAction } from '../protocol/actions';
 import {
   actionMessage,
+  chooseModeMessage,
   HEARTBEAT,
+  helloMessage,
+  joinTeamMessage,
   parseTvMessage,
+  removeTeamMessage,
   type PhoneMessage,
   type TvMessage,
 } from '../protocol/messages';
+import type { RoomView } from '../protocol/room';
 import type { PublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
 import { watchOnline } from '../shared/network';
+import { loadClientId } from '../storage/client-id-store';
 import { clearRoomCode, loadRoomCode, saveRoomCode } from '../storage/room-code-store';
-import { describeScreen } from './controls';
+import { describeScreen, phoneRole } from './controls';
 import { readCodeFromUrl, writeCodeToUrl } from './room-url';
-import { renderScreen, type ConfirmableAction, type SetupDraft } from './screens';
+import { renderScreen, type ConfirmableAction, type RoomRequest, type SetupDraft } from './screens';
 import { messageFor, PHONE_TEXTS, statusLabel, type BannerMessage } from './texts';
 
 /** If the TV never answers an action, buttons come back after this delay. */
@@ -26,6 +32,49 @@ const PENDING_TIMEOUT_MS = 5000;
 const texts = PHONE_TEXTS;
 
 const PHONE_ROOM_CODE_KEY = 'rdlf.phoneRoomCode';
+
+/** Until the TV tells otherwise: no mode chosen, no team. */
+const UNKNOWN_ROOM: RoomView = { mode: null, isMaster: false, team: null, seats: [] };
+
+function roomMessage(request: RoomRequest): PhoneMessage {
+  switch (request.type) {
+    case 'chooseMode':
+      return chooseModeMessage(request.mode);
+    case 'joinTeam':
+      return joinTeamMessage(request.name);
+    case 'removeTeam':
+      return removeTeamMessage(request.team);
+  }
+}
+
+/**
+ * Another phone joining or leaving rebuilds the screen: what is being typed and
+ * the keyboard focus must survive it.
+ */
+function replaceKeepingInputs(
+  container: HTMLElement,
+  next: HTMLElement,
+  sameScreen: boolean,
+): void {
+  const before = Array.from(container.querySelectorAll('input'));
+  const focused = before.findIndex((input) => input === document.activeElement);
+  container.replaceChildren(next);
+  if (!sameScreen) return;
+  const after = Array.from(container.querySelectorAll('input'));
+  before.forEach((input, index) => {
+    const target = after[index];
+    if (target !== undefined && target.value === '') target.value = input.value;
+  });
+  if (focused >= 0) after[focused]?.focus();
+}
+
+/** With one phone per team, the team this phone plays for. */
+function ownTeamName(view: PublicView, room: RoomView): string | null {
+  if (room.mode !== 'multi' || room.team === null) return null;
+  const inGame = view.phase === 'setup' ? undefined : view.teams[room.team]?.name;
+  const joined = room.seats[room.team]?.name ?? '';
+  return inGame ?? (joined === '' ? texts.teamPlaceholder(room.team) : joined);
+}
 
 /** The code from the QR code wins; otherwise the phone reconnects to the last TV. */
 function initialCode(): string | null {
@@ -95,9 +144,28 @@ function headerText(view: PublicView): string {
   }
 }
 
+/** With one phone, another phone took over: this one waits until asked to take over again. */
+function showReplaced(root: HTMLElement, code: string): void {
+  const takeOver = createElement('button', { className: 'big-button', text: texts.takeOver });
+  takeOver.addEventListener('click', () => {
+    showController(root, code);
+  });
+  root.replaceChildren(
+    createElement('main', { className: 'controller' }, [
+      createElement('div', { className: 'room', text: texts.room(code) }),
+      createElement('p', { className: 'headline', text: texts.replaced }),
+      takeOver,
+    ]),
+  );
+}
+
 function showController(root: HTMLElement, code: string): void {
   const remembered = saveRoomCode(code, PHONE_ROOM_CODE_KEY);
   let view: PublicView | null = null;
+  const clientId = loadClientId(Math.random).id;
+  let room: RoomView = UNKNOWN_ROOM;
+  /** Team the master plays for, while its phone is disconnected. */
+  let standingIn: number | null = null;
   let status: ConnectionStatus = { kind: 'waiting' };
   let message: BannerMessage | null = null;
   let versionError = false;
@@ -106,16 +174,19 @@ function showController(root: HTMLElement, code: string): void {
   let pendingTimer: ReturnType<typeof setTimeout> | undefined;
   let confirming: ConfirmableAction | null = null;
   let renderedKey = '';
+  let renderedScreen = '';
   const setup: SetupDraft = {
     teamCount: 2,
     names: [],
     firstRound: 1,
     forcedSpin: -1,
     testMode: isTestMode(window.location.search),
+    ownName: '',
   };
 
   const statusElement = createElement('div', { className: 'connection' });
   const header = createElement('div', { className: 'header' });
+  const teamElement = createElement('div', { className: 'own-team' });
   const messageElement = createElement('div', { className: 'message' });
   const body = createElement('div', { className: 'body' });
   const changeButton = createElement('button', {
@@ -134,31 +205,57 @@ function showController(root: HTMLElement, code: string): void {
     }
   }
 
-  function send(action: PhoneAction): void {
+  function sendMessage(outgoing: PhoneMessage): void {
     if (pending || status.kind !== 'connected') return;
     setPending(true);
-    client.send(actionMessage(action));
+    client.send(outgoing);
     render();
+  }
+
+  function send(action: PhoneAction): void {
+    sendMessage(actionMessage(action));
   }
 
   function renderBody(current: PublicView): void {
     const screen = describeScreen(current);
-    const enabled = status.kind === 'connected' && !pending && !current.busy;
+    const role = phoneRole(current, room, standingIn);
+    const ready = status.kind === 'connected' && !pending && !current.busy;
+    const enabled = ready && role.canPlay;
+    const manageEnabled = ready && role.canManage;
     // Rebuilding the screen would wipe what is being typed: only do it when something changed.
     const key = JSON.stringify({
       screen,
+      ready,
       enabled,
+      manageEnabled,
+      role,
+      room,
       confirming,
       setup: [setup.teamCount, setup.firstRound],
       current,
     });
     if (key === renderedKey) return;
     renderedKey = key;
-    body.replaceChildren(
+    const screenKey = JSON.stringify(screen);
+    const sameScreen = screenKey === renderedScreen;
+    renderedScreen = screenKey;
+    replaceKeepingInputs(
+      body,
       renderScreen(screen, {
         view: current,
+        ready,
         enabled,
+        manageEnabled,
         send,
+        sendRoom: (request) => {
+          sendMessage(roomMessage(request));
+        },
+        room,
+        role,
+        standIn: () => {
+          standingIn = current.activeTeam;
+          render();
+        },
         setup,
         confirming,
         askConfirmation: (action) => {
@@ -167,6 +264,7 @@ function showController(root: HTMLElement, code: string): void {
         },
         refresh: render,
       }),
+      sameScreen,
     );
   }
 
@@ -178,11 +276,16 @@ function showController(root: HTMLElement, code: string): void {
     messageElement.classList.toggle('error', message?.isError ?? false);
     if (view === null) return;
     header.textContent = headerText(view);
+    const ownTeam = ownTeamName(view, room);
+    teamElement.textContent = ownTeam === null ? '' : texts.yourTeam(ownTeam);
     renderBody(view);
   }
 
-  function receiveView(next: PublicView): void {
+  function receiveState(next: PublicView, nextRoom: RoomView): void {
+    // Standing in lasts for one turn: it stops when the turn moves on.
+    if (next.activeTeam !== standingIn) standingIn = null;
     view = next;
+    room = nextRoom;
     versionError = false;
     confirming = null;
     setPending(false);
@@ -199,7 +302,12 @@ function showController(root: HTMLElement, code: string): void {
     decode: parseTvMessage,
     heartbeat: HEARTBEAT,
     onMessage: (incoming) => {
-      if (incoming.type === 'state') receiveView(incoming.view);
+      if (incoming.type === 'state') receiveState(incoming.view, incoming.room);
+      if (incoming.type === 'replaced') {
+        client.stop();
+        setPending(false);
+        showReplaced(root, code);
+      }
     },
     onInvalid: (reason) => {
       if (reason !== 'version') return;
@@ -209,6 +317,7 @@ function showController(root: HTMLElement, code: string): void {
     onStatus: (next) => {
       status = next;
       setPending(false);
+      if (next.kind === 'connected') client.send(helloMessage(clientId));
       render();
     },
   });
@@ -230,6 +339,7 @@ function showController(root: HTMLElement, code: string): void {
       createElement('div', { className: 'room', text: texts.room(code) }),
       statusElement,
       header,
+      teamElement,
       messageElement,
       body,
       ...(remembered

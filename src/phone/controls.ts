@@ -1,6 +1,7 @@
 import { ROUND_COUNT, type WheelSegment } from '../game/config';
 import type { SlotPart } from '../game/state';
 import { wheelForRound } from '../game/wheel';
+import type { RoomView } from '../protocol/room';
 import type { PublicView } from '../protocol/view';
 
 /** What the phone shows, derived only from the public view sent by the TV. */
@@ -132,4 +133,43 @@ export function forcedSpinOptions(
       label: `${String(segmentIndex + 1)} · ${label(segment, part)}`,
     }));
   });
+}
+
+/** What this phone may do right now. With one phone, it may do everything. */
+export interface PhoneRole {
+  /** Turn actions: spin, letters, answer, envelopes, buzz. */
+  canPlay: boolean;
+  /** Game management: start, next round, abandon, new game. */
+  canManage: boolean;
+  /** Team whose turn it is, when this phone is not playing. */
+  waitingFor: number | null;
+  /** The master may play for the team whose turn it is: its phone is disconnected. */
+  canStandIn: boolean;
+}
+
+const FULL_ROLE: PhoneRole = {
+  canPlay: true,
+  canManage: true,
+  waitingFor: null,
+  canStandIn: false,
+};
+
+function hasTurns(view: PublicView): boolean {
+  return view.phase === 'tossUp' || view.phase === 'playing' || view.phase === 'final';
+}
+
+/** standingIn: team the master chose to play for, if any. */
+export function phoneRole(view: PublicView, room: RoomView, standingIn: number | null): PhoneRole {
+  if (room.mode !== 'multi') return FULL_ROLE;
+  const canManage = room.isMaster;
+  // Before the buzz, every team plays at once on its own phone.
+  if (view.phase === 'tossUp' && view.activeTeam === null) {
+    return { canPlay: room.team !== null, canManage, waitingFor: null, canStandIn: false };
+  }
+  const turn = hasTurns(view) ? view.activeTeam : null;
+  if (turn === null) return { canPlay: false, canManage, waitingFor: null, canStandIn: false };
+  const own = turn === room.team;
+  const canStandIn = room.isMaster && !own && room.seats[turn]?.connected === false;
+  const canPlay = own || (canStandIn && standingIn === turn);
+  return { canPlay, canManage, waitingFor: canPlay ? null : turn, canStandIn };
 }
