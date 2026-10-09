@@ -9,6 +9,7 @@ import {
   PROTOCOL_VERSION,
   stateMessage,
 } from './messages';
+import { SINGLE_PHONE_ROOM } from './room';
 import { toPublicView } from './view';
 
 const invalid = { ok: false, reason: 'invalid' };
@@ -109,7 +110,7 @@ describe('parsePhoneMessage', () => {
 
 describe('parseTvMessage', () => {
   it('accepts a state message', () => {
-    const message = stateMessage(toPublicView(INITIAL_STATE, []));
+    const message = stateMessage(toPublicView(INITIAL_STATE, []), SINGLE_PHONE_ROOM);
     expect(parseTvMessage(message)).toEqual({ ok: true, message });
   });
 

@@ -4,6 +4,7 @@ import { reduce, type GameDeps } from '../game/reducer';
 import { INITIAL_STATE, type GameAction, type GameState } from '../game/state';
 import { normalizeText } from '../game/text';
 import { parseTvMessage, stateMessage } from './messages';
+import { SINGLE_PHONE_ROOM } from './room';
 import { toPublicView } from './view';
 
 const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
@@ -94,14 +95,14 @@ describe('toPublicView', () => {
     expect(toPublicView(INITIAL_STATE, []).busy).toBe(false);
     const view = toPublicView(INITIAL_STATE, [], true);
     expect(view.busy).toBe(true);
-    expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+    expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
   });
 
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [...START, { type: 'spin' }]);
     const view = toPublicView(state, [{ type: 'wheelSpun', segmentIndex: 0, part: 'middle' }]);
-    expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+    expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
   });
 
   it.each(PHRASES)('never reveals "$text" nor its theme', (phrase) => {
@@ -134,7 +135,7 @@ describe('toPublicView', () => {
         activeTeam: null,
         eliminatedTeams: [],
       });
-      expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+      expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
     });
 
     it('shows who answers, then who is out', () => {
@@ -217,7 +218,7 @@ describe('toPublicView', () => {
         won: true,
         prize: { kind: 'money', amount: 500 },
       });
-      expect(parseTvMessage(stateMessage(view)).ok).toBe(true);
+      expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
     });
   });
 });

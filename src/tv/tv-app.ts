@@ -15,6 +15,7 @@ import {
   type PhoneMessage,
   type TvMessage,
 } from '../protocol/messages';
+import { SINGLE_PHONE_ROOM } from '../protocol/room';
 import { toPublicView } from '../protocol/view';
 import { createElement } from '../shared/dom';
 import { watchOnline } from '../shared/network';
@@ -295,7 +296,7 @@ export function startTv(root: HTMLElement): void {
   }
 
   function sendView(events: readonly GameEvent[]): void {
-    host.send(stateMessage(toPublicView(state, events, slowAnimations > 0)));
+    host.send(stateMessage(toPublicView(state, events, slowAnimations > 0), SINGLE_PHONE_ROOM));
   }
 
   /** Queues the animations of a result. The phone is told when the slow ones are over. */
