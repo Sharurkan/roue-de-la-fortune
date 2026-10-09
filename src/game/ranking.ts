@@ -15,3 +15,11 @@ export function rankTeams(teams: readonly Team[]): RankedTeam[] {
     rank: 1 + sorted.filter((other) => other.score > entry.score).length,
   }));
 }
+
+/** Team indexes by round score, highest first. Ties keep the playing order. */
+export function orderByRoundScore(teams: readonly Team[]): number[] {
+  return teams
+    .map((team, index) => ({ index, score: team.roundScore }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((entry) => entry.index);
+}

@@ -215,10 +215,11 @@ describe('wheel', () => {
     ]);
   });
 
-  it('bankrupt keeps the total score', () => {
+  it('bankrupt also wipes out the total score, but only for that team', () => {
     const game = inRound(newGame(), 3);
     const withTotal = { ...game, teams: game.teams.map((t) => ({ ...t, totalScore: 900 })) };
-    expect(playing(spinTo(withTotal, SEGMENT.bankrupt).state).teams[0]?.totalScore).toBe(900);
+    const teams = playing(spinTo(withTotal, SEGMENT.bankrupt).state).teams;
+    expect(teams.map((t) => t.totalScore)).toEqual([0, 900, 900]);
   });
 
   it('pass passes the turn and keeps the score', () => {
@@ -498,6 +499,56 @@ describe('rounds and game end', () => {
 
   it('refuses a new game before the end of the game', () => {
     expect(reduce(newGame(), { type: 'newGame' }, deps()).events).toEqual(rejection('wrongPhase'));
+  });
+});
+
+describe('stake round (round 4)', () => {
+  const phrases: Phrase[] = [{ theme: 'Film', text: 'Le Roi lion' }];
+  const totals = [1200, 500, 0];
+
+  /** End of round 3 with the given totals, then round 4 starts with team 0. */
+  function stakeRound(): PlayingState {
+    const round3 = inRound(newGame(3, phrases), 3);
+    const withTotals = {
+      ...round3,
+      teams: round3.teams.map((t, i) => ({ ...t, totalScore: totals[i] ?? 0 })),
+    };
+    const roundOver = apply(withTotals, [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: 'le roi lion' },
+    ]).state;
+    const tossUp = reduce(roundOver, { type: 'nextRound' }, deps([], phrases)).state;
+    return winTossUp(tossUp, 0, phrases);
+  }
+
+  it('starts with each total at stake as round score', () => {
+    const state = stakeRound();
+    expect(state.roundNumber).toBe(4);
+    expect(state.teams.map((t) => t.roundScore)).toEqual(totals);
+    expect(state.teams.map((t) => t.totalScore)).toEqual([0, 0, 0]);
+  });
+
+  it('only the winner keeps money, the other teams end at 0', () => {
+    const state = { ...stakeRound(), round: { ...stakeRound().round, activeTeam: 1 } };
+    const { state: over } = apply(state, [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: 'le roi lion' },
+    ]);
+    if (over.phase !== 'roundOver') throw new Error('Expected roundOver');
+    expect(over.teams.map((t) => t.totalScore)).toEqual([0, 500, 0]);
+  });
+
+  it('a bankrupt there loses the whole kitty', () => {
+    const state = stakeRound();
+    const result = reduce(state, { type: 'spin', segmentIndex: 0, part: 'left' }, deps());
+    const after = playing(reduce(result.state, { type: 'spinEnded' }, deps()).state);
+    expect(after.teams[0]).toMatchObject({ roundScore: 0, totalScore: 0 });
+  });
+
+  it('abandoning gives the totals back', () => {
+    const over = reduce(stakeRound(), { type: 'abandonGame' }, deps()).state;
+    if (over.phase !== 'gameOver') throw new Error('Expected gameOver');
+    expect(over.teams.map((t) => t.totalScore)).toEqual(totals);
   });
 });
 

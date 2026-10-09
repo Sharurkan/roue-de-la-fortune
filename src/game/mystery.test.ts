@@ -95,8 +95,25 @@ describe('mystery panel', () => {
     ]);
   });
 
-  it('never touches the total score', () => {
-    const state = playing(landOnMystery(0.2, 'bankrupt').state);
-    expect(state.teams[0]?.totalScore).toBe(0);
+  it('its bankrupt wipes out the total too, like the wheel one', () => {
+    const start = round3();
+    const withTotal = { ...start, teams: start.teams.map((t) => ({ ...t, totalScore: 900 })) };
+    const result = apply(
+      withTotal,
+      [{ type: 'spin' }, { type: 'spinEnded' }],
+      deps([(MYSTERY_SLOT + 0.5) / 24, 0.5, 0.2, 0.6]),
+    );
+    expect(playing(result.state).teams.map((t) => t.totalScore)).toEqual([0, 900]);
+  });
+
+  it('the other effects never touch the total', () => {
+    const start = round3();
+    const withTotal = { ...start, teams: start.teams.map((t) => ({ ...t, totalScore: 900 })) };
+    const result = apply(
+      withTotal,
+      [{ type: 'spin' }, { type: 'spinEnded' }],
+      deps([(MYSTERY_SLOT + 0.5) / 24, 0.5, 0.2, 0.9]),
+    );
+    expect(playing(result.state).teams[0]?.totalScore).toBe(900);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rankTeams } from './ranking';
+import { orderByRoundScore, rankTeams } from './ranking';
 
 const team = (totalScore: number) => ({ name: 'x', roundScore: 0, totalScore });
 
@@ -18,5 +18,17 @@ describe('rankTeams', () => {
       { team: 2, rank: 1 },
       { team: 1, rank: 3 },
     ]);
+  });
+});
+
+describe('orderByRoundScore', () => {
+  const withRound = (roundScore: number) => ({ name: 'x', roundScore, totalScore: 0 });
+
+  it('puts the best round score first', () => {
+    expect(orderByRoundScore([withRound(100), withRound(900), withRound(400)])).toEqual([1, 2, 0]);
+  });
+
+  it('keeps the playing order on a tie', () => {
+    expect(orderByRoundScore([withRound(0), withRound(0), withRound(0)])).toEqual([0, 1, 2]);
   });
 });

@@ -1,6 +1,6 @@
 import { FINAL_PRIZES, WHEELS } from '../game/config';
 import { finalRevealedLetters } from '../game/final';
-import type { RankedTeam } from '../game/ranking';
+import { orderByRoundScore, type RankedTeam } from '../game/ranking';
 import type {
   FinalResult,
   FinalState,
@@ -98,8 +98,13 @@ function renderTeams(
   active: number | null,
   out: readonly number[] = [],
 ): void {
+  // The best round score comes first, like on TV.
+  const ordered = orderByRoundScore(teams).flatMap((index) => {
+    const team = teams[index];
+    return team === undefined ? [] : [{ team, index }];
+  });
   container.replaceChildren(
-    ...teams.map((team, index) =>
+    ...ordered.map(({ team, index }) =>
       createElement('div', { className: teamClass(index, active, out) }, [
         createElement('div', { className: 'team-name', text: team.name }),
         createElement('div', { className: 'team-scores' }, [

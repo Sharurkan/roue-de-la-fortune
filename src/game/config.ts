@@ -158,6 +158,12 @@ export const BOARD_MAX_ROWS = 4;
 
 export const ROUND_COUNT = 4;
 
+/**
+ * In this round, each team starts with its total as round score: the whole
+ * kitty is at stake. Only the winner keeps money; the other teams end at 0.
+ */
+export const STAKE_ROUND = 4;
+
 /** Toss-up: time between two letters appearing on the board. */
 export const TOSS_UP_REVEAL_INTERVAL_MS = 1500;
 

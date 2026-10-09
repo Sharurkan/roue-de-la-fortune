@@ -39,7 +39,7 @@ Roues (une par manche, 24 cases chacune, dans `game/config.ts`, comme à la TV)
 - Manche 3 : une BANQUEROUTE, une PASSE, la case « La Bonne Poche » à midi et la case Mystère à 6 h.
 - Manche 4 : une case partagée à midi (25 % BANQUEROUTE, 50 % 5 000 € en or, 25 % BANQUEROUTE) et une PASSE à 16 h.
 - La Bonne Poche : deux enveloppes, une rouge et une bleue. L'une contient une somme tirée au hasard (500 à 3 000 €), l'autre rien ; l'enveloppe gagnante est tirée à chaque fois. Bonne enveloppe : la somme s'ajoute au score de manche et l'équipe rejoue. Enveloppe vide : la main passe.
-- Mystère (case bleue, « ? » doré puis 500 €) : le panneau se retourne. Une fois sur deux, 500 € par consonne comme une case normale. Sinon un effet tiré au hasard : +1 000 € ou score de manche doublé (l'équipe rejoue), banqueroute ou moitié du score de manche perdue (la main passe).
+- Mystère (case bleue, « ? » doré puis 500 €) : le panneau se retourne. Une fois sur deux, 500 € par consonne comme une case normale. Sinon un effet tiré au hasard : +1 000 € ou score de manche doublé (l'équipe rejoue), banqueroute (comme la case BANQUEROUTE) ou moitié du score de manche perdue (la main passe).
 - Case 5 000 € : gain unique de 5 000 €, quel que soit le nombre de lettres trouvées.
 
 Tour de jeu, l'équipe active peut :
@@ -61,7 +61,7 @@ Voyelle
 
 Cases spéciales
 
-- BANQUEROUTE : score de manche de l'équipe à 0, la main passe.
+- BANQUEROUTE : score de manche et total de l'équipe à 0, dans toutes les manches. La main passe.
 - PASSE : la main passe.
 
 Lettres
@@ -80,6 +80,7 @@ Solution
 Fin de manche
 
 - Seule l'équipe gagnante ajoute son score de manche à son total.
+- Manche 4 (`STAKE_ROUND`) : chaque équipe commence avec son total comme score de manche, tout l'argent est en jeu. À la fin, seule l'équipe gagnante garde son argent ; les autres finissent à 0.
 - Les scores de manche repartent à 0.
 - La manche suivante commence par une énigme rapide.
 
@@ -97,7 +98,7 @@ Fin de manche
 Déroulé d'une partie
 
 - 4 manches normales, puis la finale.
-- « Abandonner la partie » sur le téléphone, à tout moment, avec confirmation : classement direct, les scores de la manche en cours sont perdus.
+- « Abandonner la partie » sur le téléphone, à tout moment, avec confirmation : classement direct, les scores de la manche en cours sont perdus (en manche 4, chaque équipe garde l'argent qu'elle a en jeu).
 - Classement final sur la TV, avec le résultat de la finale. Bouton « Nouvelle partie » sur le téléphone.
 
 Finale

@@ -1,4 +1,4 @@
-import { FINAL_PRIZES, type MysteryEffect, type Prize } from '../game/config';
+import { FINAL_PRIZES, STAKE_ROUND, type MysteryEffect, type Prize } from '../game/config';
 import type { GameEvent } from '../game/events';
 import type { ConnectionStatus } from '../net/connection-status';
 
@@ -22,7 +22,7 @@ function mysteryMessage(outcome: MysteryEffect | 'money', name: string): string 
     case 'double':
       return `Mystère : le score de ${name} est doublé !`;
     case 'bankrupt':
-      return `Mystère : banqueroute pour ${name} !`;
+      return `Mystère : banqueroute, ${name} perd tout son argent !`;
     case 'half':
       return `Mystère : ${name} perd la moitié de son score`;
   }
@@ -111,9 +111,11 @@ export function eventMessage(event: GameEvent, teamName: (team: number) => strin
     case 'tossUpFailed':
       return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'roundStarted':
-      return `Manche ${String(event.roundNumber)} : c'est parti !`;
+      return event.roundNumber === STAKE_ROUND
+        ? `Manche ${String(event.roundNumber)} : vos totaux sont en jeu !`
+        : `Manche ${String(event.roundNumber)} : c'est parti !`;
     case 'bankrupt':
-      return `BANQUEROUTE ! ${teamName(event.team)} perd son score de manche`;
+      return `BANQUEROUTE ! ${teamName(event.team)} perd tout son argent`;
     case 'mysteryRevealed':
       return mysteryMessage(event.outcome, teamName(event.team));
     case 'pocketOffered':

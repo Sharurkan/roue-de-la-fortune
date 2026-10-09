@@ -1,4 +1,4 @@
-import { pickIndex, updateTeam, type GameDeps, type ReduceResult } from './common';
+import { bankruptTeam, pickIndex, updateTeam, type GameDeps, type ReduceResult } from './common';
 import {
   MYSTERY_BONUS,
   MYSTERY_EFFECT_CHANCE,
@@ -22,14 +22,12 @@ export function revealMystery(state: PlayingState, amount: number, deps: GameDep
   return applyEffect(state, effect);
 }
 
-function newRoundScore(score: number, effect: MysteryEffect): number {
+function newRoundScore(score: number, effect: Exclude<MysteryEffect, 'bankrupt'>): number {
   switch (effect) {
     case 'bonus':
       return score + MYSTERY_BONUS;
     case 'double':
       return score * 2;
-    case 'bankrupt':
-      return 0;
     case 'half':
       return Math.floor(score / 2);
   }
@@ -38,10 +36,13 @@ function newRoundScore(score: number, effect: MysteryEffect): number {
 /** A bonus lets the team play again; a penalty passes the turn. */
 function applyEffect(state: PlayingState, effect: MysteryEffect): ReduceResult {
   const team = state.round.activeTeam;
-  const teams = updateTeam(state.teams, team, (t) => ({
-    ...t,
-    roundScore: newRoundScore(t.roundScore, effect),
-  }));
+  const teams =
+    effect === 'bankrupt'
+      ? bankruptTeam(state.teams, team)
+      : updateTeam(state.teams, team, (t) => ({
+          ...t,
+          roundScore: newRoundScore(t.roundScore, effect),
+        }));
   const revealed: GameEvent = { type: 'mysteryRevealed', team, outcome: effect };
   if (effect === 'bankrupt' || effect === 'half') return passTurn({ ...state, teams }, [revealed]);
   return { state: { ...state, teams, step: { kind: 'choosing' } }, events: [revealed] };

@@ -143,7 +143,7 @@ function eventMessage(event: GameEvent, teamName: (team: number) => string): str
     case 'tossUpFailed':
       return `Personne n'a trouvé : ${teamName(event.team)} commence`;
     case 'bankrupt':
-      return `Banqueroute pour ${teamName(event.team)} !`;
+      return `Banqueroute : ${teamName(event.team)} perd tout son argent !`;
     case 'mysteryRevealed':
       return MYSTERY_TEXTS[event.outcome];
     case 'pocketOffered':

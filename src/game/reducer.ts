@@ -1,4 +1,5 @@
 import {
+  bankruptTeam,
   normalizeLetter,
   pickIndex,
   reject,
@@ -14,6 +15,7 @@ import {
   MAX_TEAMS,
   MIN_TEAMS,
   ROUND_COUNT,
+  STAKE_ROUND,
   VOWEL_COST,
   VOWELS,
   type WheelSegment,
@@ -159,10 +161,10 @@ function spinEnded(state: GameState, deps: GameDeps): ReduceResult {
         },
         events: [],
       };
-    case 'bankrupt': {
-      const teams = updateTeam(state.teams, team, (t) => ({ ...t, roundScore: 0 }));
-      return passTurn({ ...state, teams }, [{ type: 'bankrupt', team }]);
-    }
+    case 'bankrupt':
+      return passTurn({ ...state, teams: bankruptTeam(state.teams, team) }, [
+        { type: 'bankrupt', team },
+      ]);
     case 'pass':
       return passTurn(state, [{ type: 'landedOnPass', team }]);
     case 'pocket':
@@ -311,7 +313,13 @@ function nextRound(state: GameState, deps: GameDeps): ReduceResult {
 /** Stops a game at any time. Round scores of an unfinished round are lost. */
 function abandonGame(state: GameState): ReduceResult {
   if (state.phase === 'setup' || state.phase === 'gameOver') return reject(state, 'wrongPhase');
-  const teams = state.teams.map((team) => ({ ...team, roundScore: 0 }));
+  // During the stake round, the totals are in the round scores: they are given back.
+  const stakeRound = state.phase === 'playing' && state.roundNumber === STAKE_ROUND;
+  const teams = state.teams.map((team) => ({
+    ...team,
+    roundScore: 0,
+    totalScore: stakeRound ? team.roundScore : team.totalScore,
+  }));
   return { state: { phase: 'gameOver', teams, final: null }, events: [{ type: 'gameOver' }] };
 }
 

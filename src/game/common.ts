@@ -57,6 +57,11 @@ export function normalizeLetter(input: string, allowed: string): string | null {
   return letter.length === 1 && allowed.includes(letter) ? letter : null;
 }
 
+/** A bankrupt wipes out everything: the round score and the total. */
+export function bankruptTeam(teams: Team[], index: number): Team[] {
+  return updateTeam(teams, index, (team) => ({ ...team, roundScore: 0, totalScore: 0 }));
+}
+
 export function updateTeam(teams: Team[], index: number, update: (team: Team) => Team): Team[] {
   return teams.map((team, i) => (i === index ? update(team) : team));
 }
