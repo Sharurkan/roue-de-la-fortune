@@ -188,8 +188,11 @@ export function createRankingScreen(): RankingScreen {
         ...ranking.map(({ team, rank }) =>
           createElement('li', { className: rank === 1 ? 'winner' : '' }, [
             createElement('span', { className: 'rank', text: TV_TEXTS.rank(rank) }),
-            createElement('span', { text: teams[team]?.name ?? '' }),
-            createElement('span', { text: TV_TEXTS.euros(teams[team]?.totalScore ?? 0) }),
+            createElement('span', { className: 'ranking-name', text: teams[team]?.name ?? '' }),
+            createElement('span', {
+              className: 'ranking-total',
+              text: TV_TEXTS.euros(teams[team]?.totalScore ?? 0),
+            }),
           ]),
         ),
       );

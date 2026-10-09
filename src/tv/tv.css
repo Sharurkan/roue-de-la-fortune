@@ -293,32 +293,55 @@
 }
 
 .final h1 {
+  margin: 0;
+  font-family: var(--font-title);
   font-size: 9vh;
-  color: var(--accent);
+  font-weight: normal;
+  color: var(--trim-light);
 }
 
 .ranking {
-  margin: 4vh 0;
+  margin: 3vh 0;
   padding: 0;
   list-style: none;
-  font-size: 5vh;
+  font-family: var(--font-title);
+  font-size: 4.5vh;
 }
 
 .ranking li {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   min-width: 60vw;
-  margin-bottom: 2vh;
+  margin-bottom: 1.5vh;
+  padding: 1vh 2vw;
+  border: 0.4vh solid transparent;
+  border-radius: 1.2vh;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .ranking li.winner {
-  color: var(--accent);
-  font-size: 6.5vh;
-  font-weight: bold;
+  border-color: var(--trim-light);
+  background: var(--trim-main);
+  font-size: 6vh;
 }
 
 .rank {
-  min-width: 10vw;
+  min-width: 8vw;
+  margin-right: 2vw;
+  color: var(--trim-light);
+}
+
+.ranking li.winner .rank {
+  color: var(--fg);
+}
+
+.ranking-name {
+  flex: 1;
+}
+
+.ranking-total {
+  margin-left: 3vw;
+  color: #3ddc97;
 }
 
 /* Animations: transform and opacity only, cheap enough for the Fire TV Stick. */
