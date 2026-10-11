@@ -1,3 +1,4 @@
+import { fillBoard, HIDDEN_TILE, type FilledBoard } from '../game/board';
 import {
   CONSONANTS,
   DEFAULT_TEAM_NAME_PREFIX,
@@ -304,21 +305,102 @@ function cancelButton(context: ScreenContext): HTMLButtonElement {
   );
 }
 
-/** The final and the toss-up allow a single try: no way back, so no cancel button. */
-function solvingScreen(context: ScreenContext, label: string, canCancel: boolean): HTMLElement {
+/** The board as the TV shows it, with the typed letters in the hidden tiles. */
+function answerTiles(board: readonly string[], filled: FilledBoard): HTMLElement {
+  let nextShown = false;
+  const rows = board.map((row, rowIndex) =>
+    createElement(
+      'div',
+      { className: 'answer-row' },
+      Array.from(filled.rows[rowIndex] ?? row, (char, i) => {
+        if (char === ' ') return createElement('span', { className: 'answer-gap' });
+        const typed = row[i] === HIDDEN_TILE;
+        const empty = char === HIDDEN_TILE;
+        const next = empty && !nextShown;
+        if (next) nextShown = true;
+        const className = `answer-tile${typed ? ' typed' : ''}${next ? ' next' : ''}`;
+        return createElement('span', { className, text: empty ? '' : char });
+      }),
+    ),
+  );
+  return createElement('div', { className: 'answer-board' }, rows);
+}
+
+function fillStatus(filled: FilledBoard): string {
+  if (filled.extra > 0) return texts.lettersTooMany(filled.extra);
+  if (filled.missing > 0) return texts.lettersMissing(filled.missing);
+  return texts.boardFull;
+}
+
+/** Keeps the caret at the end: letters fill the tiles in the order they are typed. */
+function keepCaretAtEnd(input: HTMLInputElement): void {
+  const toEnd = (): void => {
+    input.setSelectionRange(input.value.length, input.value.length);
+  };
+  for (const type of ['input', 'focus', 'click', 'keyup']) input.addEventListener(type, toEnd);
+}
+
+/**
+ * With the board, typing goes to an invisible field laid over the tiles:
+ * tapping the board opens the phone keyboard.
+ */
+function answerField(
+  board: readonly string[] | null,
+  label: string,
+  input: HTMLInputElement,
+  tiles: HTMLElement,
+): HTMLElement {
+  if (board === null) return createElement('label', { className: 'label', text: label }, [input]);
+  input.className = 'answer-input';
+  input.setAttribute('aria-label', label);
+  keepCaretAtEnd(input);
+  return createElement('div', { className: 'answer-field' }, [tiles, input]);
+}
+
+/**
+ * The final and the toss-up allow a single try: no way back, so no cancel button.
+ * headline: what to show above the board, if anything.
+ */
+function solvingScreen(
+  context: ScreenContext,
+  headline: string | null,
+  canCancel: boolean,
+): HTMLElement {
+  const { board } = context.view;
   const input = createElement('input', { className: 'text-input' });
   input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.setAttribute('autocapitalize', 'characters');
+  input.setAttribute('autocorrect', 'off');
   input.disabled = !context.enabled;
   const validate = createElement('button', { className: 'big-button', text: texts.validate });
   validate.disabled = !context.enabled;
+  const tiles = createElement('div');
+  const status = createElement('p', { className: 'note' });
+  const answer = (): string =>
+    board === null ? input.value : fillBoard(board, input.value).rows.join(' ');
+  const update = (): void => {
+    if (board === null) return;
+    const filled = fillBoard(board, input.value);
+    tiles.replaceChildren(answerTiles(board, filled));
+    status.textContent = fillStatus(filled);
+    status.classList.toggle('error', filled.extra > 0);
+    validate.disabled = !context.enabled || filled.missing > 0 || filled.extra > 0;
+  };
+  input.addEventListener('input', update);
+  update();
   const form = createElement('form', { className: 'screen' }, [
-    createElement('label', { className: 'label', text: label }, [input]),
+    ...(headline === null ? [] : [createElement('p', { className: 'headline', text: headline })]),
+    ...(board === null ? [] : [note(texts.typeMissingLetters)]),
+    answerField(board, texts.solutionLabel, input, tiles),
+    ...(board === null ? [] : [status]),
     validate,
     ...(canCancel ? [cancelButton(context)] : []),
   ]);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    context.send({ type: 'submitSolution', answer: input.value });
+    if (validate.disabled) return;
+    context.send({ type: 'submitSolution', answer: answer() });
   });
   setTimeout(() => {
     input.focus();
@@ -735,7 +817,7 @@ function gameScreen(screen: PhoneScreen, context: ScreenContext): HTMLElement {
         cancelButton(context),
       ]);
     case 'solving':
-      return solvingScreen(context, texts.solutionLabel, true);
+      return solvingScreen(context, null, true);
     case 'roundOver':
       return roundOverScreen(context, screen.winner, screen.isLastRound);
     case 'prizeWheel':

@@ -63,7 +63,10 @@ function replaceKeepingInputs(
   const after = Array.from(container.querySelectorAll('input'));
   before.forEach((input, index) => {
     const target = after[index];
-    if (target !== undefined && target.value === '') target.value = input.value;
+    if (target === undefined || target.value !== '' || input.value === '') return;
+    target.value = input.value;
+    // Lets the screen redraw what depends on the text, like the answer board.
+    target.dispatchEvent(new Event('input'));
   });
   if (focused >= 0) after[focused]?.focus();
 }

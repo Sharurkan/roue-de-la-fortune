@@ -72,6 +72,12 @@ export const PHONE_TEXTS = {
   bluePocket: 'Enveloppe bleue',
   solutionLabel: 'Ta réponse',
   validate: 'Valider',
+  typeMissingLetters: "Touche le panneau et tape seulement les lettres qui manquent, dans l'ordre.",
+  lettersMissing: (count: number) =>
+    count > 1 ? `Encore ${String(count)} lettres` : 'Encore 1 lettre',
+  lettersTooMany: (count: number) =>
+    count > 1 ? `${String(count)} lettres en trop` : '1 lettre en trop',
+  boardFull: 'Tout est rempli : tu peux valider.',
   cancel: 'Annuler',
   roundWinner: (name: string) => `${name} gagne la manche !`,
   nextRound: 'Manche suivante',

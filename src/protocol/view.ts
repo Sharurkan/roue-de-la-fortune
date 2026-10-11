@@ -1,5 +1,8 @@
 import * as z from 'zod/mini';
+import { maskBoard } from '../game/board';
 import {
+  BOARD_COLUMNS,
+  BOARD_MAX_ROWS,
   FINAL_GIVEN_LETTERS,
   FINAL_PRIZES,
   MAX_TEAM_NAME_LENGTH,
@@ -8,7 +11,7 @@ import {
   type Prize,
 } from '../game/config';
 import type { GameEvent } from '../game/events';
-import { finalPicksLeft } from '../game/final';
+import { finalPicksLeft, finalRevealedLetters } from '../game/final';
 import { rankTeams } from '../game/ranking';
 import { activeTeamCanBuyVowel, hasHiddenConsonants, hasHiddenVowels } from '../game/selectors';
 import type {
@@ -30,6 +33,10 @@ const letter = z.string().check(z.length(1));
 /** Wheel positions and travels, in segments. */
 const distance = z.number().check(z.minimum(0));
 const letters = z.array(letter).check(z.maxLength(MAX_LETTERS));
+/** Board rows as the TV shows them, hidden letters as HIDDEN_TILE. */
+const board = z
+  .array(z.string().check(z.maxLength(BOARD_COLUMNS)))
+  .check(z.maxLength(BOARD_MAX_ROWS));
 
 const gameEventSchema: z.ZodMiniType<GameEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tossUpStarted'), roundNumber: index }),
@@ -158,6 +165,8 @@ export const publicViewSchema = z.object({
   /** Swap or divide slot: during the consonant, then while choosing the other team. */
   teamEffect: z.nullable(z.enum(TEAM_EFFECTS)),
   guessedLetters: letters,
+  /** The board with only the letters visible on the TV, or null without a puzzle. */
+  board: z.nullable(board),
   canSpin: z.boolean(),
   canBuyVowel: z.boolean(),
   noMoreConsonants: z.boolean(),
@@ -187,6 +196,7 @@ const EMPTY_VIEW: PublicView = {
   consonantValue: null,
   teamEffect: null,
   guessedLetters: [],
+  board: null,
   canSpin: false,
   canBuyVowel: false,
   noMoreConsonants: false,
@@ -212,6 +222,7 @@ function roundView(state: PlayingState | RoundOverState): PublicView {
     teams: publicTeams(state.teams),
     activeTeam: state.round.activeTeam,
     guessedLetters: [...state.round.guessedLetters],
+    board: maskBoard(state.round.phrase.text, state.round.guessedLetters),
     noMoreConsonants: !hasHiddenConsonants(state.round),
     noMoreVowels: !hasHiddenVowels(state.round),
   };
@@ -236,7 +247,7 @@ function teamEffect(state: PlayingState): PublicView['teamEffect'] {
 }
 
 function tossUpView(state: TossUpState): PublicView {
-  const { buzzer, eliminated } = state.tossUp;
+  const { buzzer, eliminated, phrase, revealOrder, revealedCount } = state.tossUp;
   return {
     ...EMPTY_VIEW,
     phase: 'tossUp',
@@ -245,6 +256,7 @@ function tossUpView(state: TossUpState): PublicView {
     activeTeam: buzzer,
     step: buzzer === null ? 'buzzing' : 'solving',
     eliminatedTeams: [...eliminated],
+    board: maskBoard(phrase.text, [], revealOrder.slice(0, revealedCount)),
   };
 }
 
@@ -257,6 +269,7 @@ function finalView(state: FinalState): PublicView {
     activeTeam: state.finalist,
     step: state.step.kind,
     guessedLetters: given ? [] : [...Array.from(FINAL_GIVEN_LETTERS), ...state.final.pickedLetters],
+    board: maskBoard(state.final.phrase.text, finalRevealedLetters(state)),
     canSpin: state.step.kind === 'prizeWheel',
     finalPicks: state.step.kind === 'pickingLetters' ? finalPicksLeft(state) : null,
   };

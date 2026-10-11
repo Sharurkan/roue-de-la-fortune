@@ -8,6 +8,7 @@ import { SINGLE_PHONE_ROOM } from './room';
 import { toPublicView } from './view';
 
 const TOSS_UP: Phrase = { theme: 'Lieu', text: 'La tour Eiffel' };
+const TOSS_UP_LETTERS = 12;
 
 function deps(phrase: Phrase, random = 0): GameDeps {
   return {
@@ -98,6 +99,14 @@ describe('toPublicView', () => {
     expect(parseTvMessage(stateMessage(view, SINGLE_PHONE_ROOM)).ok).toBe(true);
   });
 
+  it('shows the board with only the letters found', () => {
+    const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
+    const state = play(phrase, [...START, { type: 'spin' }, { type: 'spinEnded' }]);
+    expect(toPublicView(state, []).board).toEqual(['__ ___ ____']);
+    const found = reduce(state, { type: 'guessConsonant', letter: 'L' }, deps(phrase)).state;
+    expect(toPublicView(found, []).board).toEqual(['L_ ___ L___']);
+  });
+
   it('produces views accepted by the protocol', () => {
     const phrase: Phrase = { theme: 'Film', text: 'Le Roi lion' };
     const state = play(phrase, [...START, { type: 'spin' }]);
@@ -154,6 +163,11 @@ describe('toPublicView', () => {
       });
     });
 
+    it('shows the tiles already appeared', () => {
+      const view = toPublicView(play(phrase, [START_GAME, { type: 'revealTossUpLetter' }]), []);
+      expect(view.board?.join('').replace(/[^_]/g, '')).toHaveLength(TOSS_UP_LETTERS - 1);
+    });
+
     it('never reveals the toss-up phrase nor its theme', () => {
       const json = JSON.stringify(toPublicView(play(phrase, [START_GAME]), []));
       expect(json.toUpperCase()).not.toContain('EIFFEL');
@@ -206,6 +220,14 @@ describe('toPublicView', () => {
       const view = toPublicView(play(phrase, [...actions, picks[0] ?? START_GAME]), []);
       expect(view.guessedLetters).toEqual(['R', 'S', 'T', 'L', 'N', 'E', 'D']);
       expect(view.finalPicks).toEqual({ consonants: 2, vowels: 1 });
+    });
+
+    it('shows the picks on the board only once all are made', () => {
+      const actions: GameAction[] = [...toFinal, { type: 'spin' }, { type: 'spinEnded' }];
+      const picking = play(phrase, [...actions, ...picks.slice(0, 3)]);
+      expect(toPublicView(picking, []).board).toEqual(['_NE T_N_E_SE']);
+      const solving = play(phrase, [...actions, ...picks]);
+      expect(toPublicView(solving, []).board).toEqual(['_NE TONDE_SE']);
     });
 
     it('reveals the envelope once the final is over', () => {

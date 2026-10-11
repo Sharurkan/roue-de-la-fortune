@@ -248,3 +248,61 @@
   min-height: 40vh;
   font-size: 2.5rem;
 }
+
+/* Answer board: the TV board, with the typed letters in the hidden tiles. */
+.answer-board {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.answer-row {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+}
+
+.answer-tile,
+.answer-gap {
+  flex: 0 1 26px;
+  min-width: 0;
+  height: 34px;
+}
+
+.answer-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #f5f5f0;
+  color: #111111;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.answer-tile.typed {
+  color: var(--trim-main);
+}
+
+.answer-tile.next {
+  box-shadow: inset 0 0 0 3px var(--trim-light);
+}
+
+.answer-field {
+  position: relative;
+}
+
+/* Invisible but focusable, so that the phone keyboard opens. 16px avoids the iOS zoom. */
+.answer-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  opacity: 0;
+}

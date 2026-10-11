@@ -173,7 +173,7 @@ Phrases
 
 ## Protocole
 
-- Version actuelle du protocole : 11.
+- Version actuelle du protocole : 12.
 - Téléphone → TV :
   - `{ v, type: "hello", clientId }` au début de chaque connexion ;
   - `{ v, type: "chooseMode", mode }`, `{ v, type: "joinTeam", name }`, `{ v, type: "removeTeam", team }` avant la partie ;
