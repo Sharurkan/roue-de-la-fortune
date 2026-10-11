@@ -38,6 +38,7 @@ export const TV_TEXTS = {
   title: 'La Roue de la Fortune',
   finalTitle: 'Finale',
   finalHint: 'Sur le téléphone : 3 consonnes et 1 voyelle',
+  givenLetters: 'Lettres données',
   pickedLetters: 'Lettres choisies',
   finalWon: (name: string, prize: string) => `${name} remporte l'enveloppe : ${prize} !`,
   finalLost: (name: string, prize: string) => `L'enveloppe de ${name} contenait : ${prize}`,

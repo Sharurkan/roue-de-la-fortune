@@ -1,4 +1,9 @@
-import { DEFAULT_TEAM_NAME_PREFIX, FINAL_PRIZES, WHEELS } from '../game/config';
+import {
+  DEFAULT_TEAM_NAME_PREFIX,
+  FINAL_GIVEN_LETTERS,
+  FINAL_PRIZES,
+  WHEELS,
+} from '../game/config';
 import { finalRevealedLetters } from '../game/final';
 import { orderByRoundScore, type RankedTeam } from '../game/ranking';
 import { hasHiddenConsonants, hasHiddenVowels } from '../game/selectors';
@@ -214,6 +219,17 @@ function exhaustedLetters(round: Round): string {
   return vowels ? TV_TEXTS.noMoreVowels : '';
 }
 
+/** Given letters get their own line, so players see every letter in play at a glance. */
+function finalLetterLines(state: FinalState): HTMLElement[] {
+  const picked = state.final.pickedLetters.join(' ');
+  const pickedText = `${TV_TEXTS.pickedLetters} : ${picked === '' ? TV_TEXTS.noUsedLetters : picked}`;
+  const pickedLine = createElement('div', { text: pickedText });
+  const stillSpinning = state.step.kind === 'prizeWheel' || state.step.kind === 'prizeSpinning';
+  if (stillSpinning) return [pickedLine];
+  const given = Array.from(FINAL_GIVEN_LETTERS).join(' ');
+  return [createElement('div', { text: `${TV_TEXTS.givenLetters} : ${given}` }), pickedLine];
+}
+
 export function createGameScreen(onTick: () => void): GameScreen {
   const board = createBoard();
   const wheels = WHEELS.map((segments) => createWheel(segmentFaces(segments), onTick));
@@ -281,8 +297,7 @@ export function createGameScreen(onTick: () => void): GameScreen {
     showPhrase(state.final.phrase.text, finalRevealedLetters(state));
     board.element.classList.remove('won');
     showTeams(state.teams, state.finalist);
-    const picked = state.final.pickedLetters.join(' ');
-    letters.textContent = `${TV_TEXTS.pickedLetters} : ${picked === '' ? TV_TEXTS.noUsedLetters : picked}`;
+    letters.replaceChildren(...finalLetterLines(state));
     hint.textContent = state.step.kind === 'pickingLetters' ? TV_TEXTS.finalHint : '';
     hint.classList.remove('alert');
   }
