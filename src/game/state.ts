@@ -68,7 +68,12 @@ export interface TossUp {
 export type TossUpState = { phase: 'tossUp'; tossUp: TossUp } & GameProgress;
 
 export type PlayingState = { phase: 'playing'; step: TurnStep } & GameData;
-export type RoundOverState = { phase: 'roundOver'; winner: number } & GameData;
+export type RoundOverState = {
+  phase: 'roundOver';
+  winner: number;
+  /** Set after the last round only: the team that plays the final. */
+  finalist?: number | undefined;
+} & GameData;
 
 /**
  * Final round, after the last regular round: the finalist spins the envelope

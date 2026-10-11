@@ -19,17 +19,16 @@ import type { FinalState, Team } from './state';
 import { positionAfter, spinTravel } from './wheel';
 import { isSameAnswer, normalizeAnswer } from './text';
 
-/** Highest total wins the final. On a tie, the winner of the last round, else the first team. */
-export function pickFinalist(teams: readonly Team[], lastRoundWinner: number): number {
-  const best = Math.max(...teams.map((team) => team.totalScore));
-  if (teams[lastRoundWinner]?.totalScore === best) return lastRoundWinner;
-  return teams.findIndex((team) => team.totalScore === best);
+/** Most money wins the final. On a tie, the winner of the last round, else the first team. */
+export function pickFinalist(money: readonly number[], lastRoundWinner: number): number {
+  const best = Math.max(...money);
+  if (money[lastRoundWinner] === best) return lastRoundWinner;
+  return money.indexOf(best);
 }
 
-export function startFinal(teams: Team[], lastRoundWinner: number, deps: GameDeps): ReduceResult {
+export function startFinal(teams: Team[], finalist: number, deps: GameDeps): ReduceResult {
   const phrase = deps.finalPhrases[pickIndex(deps.random, deps.finalPhrases.length)];
   if (phrase === undefined) throw new Error('No final phrase available');
-  const finalist = pickFinalist(teams, lastRoundWinner);
   return {
     state: {
       phase: 'final',
