@@ -144,8 +144,20 @@ const gameStateSchema: z.ZodMiniType<GameState> = z.union([
     .object({ phase: z.literal('playing'), step: stepSchema, ...gameDataShape })
     .check(z.refine(teamsInRange)),
   z
-    .object({ phase: z.literal('roundOver'), winner: count, ...gameDataShape })
-    .check(z.refine((state) => teamsInRange(state) && state.winner < state.teams.length)),
+    .object({
+      phase: z.literal('roundOver'),
+      winner: count,
+      finalist: z.optional(count),
+      ...gameDataShape,
+    })
+    .check(
+      z.refine(
+        (state) =>
+          teamsInRange(state) &&
+          state.winner < state.teams.length &&
+          (state.finalist ?? 0) < state.teams.length,
+      ),
+    ),
   finalSchema,
   gameOverSchema,
 ]);

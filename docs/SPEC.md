@@ -125,7 +125,7 @@ Déroulé d'une partie
 
 Finale
 
-- Finaliste : l'équipe au plus gros total après 4 manches. Égalité : l'équipe ex æquo qui a gagné la 4e manche, sinon la première dans l'ordre.
+- Finaliste : l'équipe qui a le plus d'argent en jeu au moment où la phrase de la 4e manche est trouvée (avant que les perdants tombent à 0). Ce n'est donc pas forcément l'équipe qui a trouvé la phrase. Égalité : l'équipe ex æquo qui a gagné la 4e manche, sinon la première dans l'ordre.
 - Il tourne une petite roue de 8 enveloppes : 500 €, 1 000 €, 1 500 €, 2 000 €, 3 000 €, 5 000 €, Voyage, Bisou (dans `game/config.ts`). Le contenu reste caché jusqu'à la fin.
 - Énigme courte (objet, lieu, chanson, film, animal, personnage, cuisine…), tirée d'une liste à part (environ 800 réponses, sans doublon même avec ou sans article) : jamais d'expression ni de proverbe. R S T L N E n'y font que 5 à 25 % des lettres, pour que la finale reste difficile.
 - R S T L N E sont révélées d'office (case bleue, puis lettre).

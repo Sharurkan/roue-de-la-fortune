@@ -21,6 +21,7 @@ import {
 } from './config';
 import type { GameEvent } from './events';
 import {
+  pickFinalist,
   pickFinalLetter,
   prizeWheelStopped,
   spinPrizeWheel,
@@ -33,7 +34,7 @@ import {
   hasHiddenConsonants,
   hasHiddenVowels,
 } from './selectors';
-import type { GameAction, GameState, PlayingState, Round, SlotPart } from './state';
+import type { GameAction, GameState, PlayingState, Round, SlotPart, Team } from './state';
 import { isSameAnswer, normalizeAnswer } from './text';
 import { revealMystery } from './mystery';
 import { offerPocket, openPocket } from './pocket';
@@ -310,6 +311,7 @@ function submitSolution(state: GameState, answer: string, deps: GameDeps): Reduc
     state: {
       phase: 'roundOver',
       winner,
+      finalist: state.roundNumber >= ROUND_COUNT ? finalistOf(state, teams, winner) : undefined,
       teams,
       roundNumber: state.roundNumber,
       usedPhraseIndexes: state.usedPhraseIndexes,
@@ -318,6 +320,18 @@ function submitSolution(state: GameState, answer: string, deps: GameDeps): Reduc
     },
     events: [{ type: 'roundWon', team: winner, amount }],
   };
+}
+
+/**
+ * In the stake round, the team holding the most money when the phrase is
+ * found goes to the final, even though the losers then end at 0.
+ */
+function finalistOf(state: PlayingState, teamsAfter: readonly Team[], winner: number): number {
+  const money =
+    state.roundNumber === STAKE_ROUND
+      ? state.teams.map((team) => team.roundScore)
+      : teamsAfter.map((team) => team.totalScore);
+  return pickFinalist(money, winner);
 }
 
 function cancel(state: GameState): ReduceResult {
@@ -333,7 +347,16 @@ function cancel(state: GameState): ReduceResult {
 /** Each regular round opens with a toss-up. After the last one, "next" leads to the final. */
 function nextRound(state: GameState, deps: GameDeps): ReduceResult {
   if (state.phase !== 'roundOver') return reject(state, 'wrongPhase');
-  if (state.roundNumber >= ROUND_COUNT) return startFinal(state.teams, state.winner, deps);
+  if (state.roundNumber >= ROUND_COUNT) {
+    // A save from before the finalist was stored: fall back on the totals.
+    const finalist =
+      state.finalist ??
+      pickFinalist(
+        state.teams.map((team) => team.totalScore),
+        state.winner,
+      );
+    return startFinal(state.teams, finalist, deps);
+  }
   const { teams, usedPhraseIndexes, usedTossUpIndexes } = state;
   return startTossUp(
     { teams, roundNumber: state.roundNumber + 1, usedPhraseIndexes, usedTossUpIndexes },

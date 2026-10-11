@@ -587,6 +587,27 @@ describe('stake round (round 4)', () => {
     expect(over.teams.map((t) => t.totalScore)).toEqual([0, 500, 0]);
   });
 
+  it('sends the team with the most money to the final, not the one who solved', () => {
+    const state = { ...stakeRound(), round: { ...stakeRound().round, activeTeam: 1 } };
+    const { state: over } = apply(state, [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: 'le roi lion' },
+    ]);
+    const final = reduce(over, { type: 'nextRound' }, deps()).state;
+    expect(final).toMatchObject({ phase: 'final', finalist: 0 });
+  });
+
+  it('on a tie for the most money, sends the team who solved', () => {
+    const start = stakeRound();
+    const tied = start.teams.map((t, i) => ({ ...t, roundScore: i === 2 ? 0 : 800 }));
+    const state = { ...start, teams: tied, round: { ...start.round, activeTeam: 1 } };
+    const { state: over } = apply(state, [
+      { type: 'startSolving' },
+      { type: 'submitSolution', answer: 'le roi lion' },
+    ]);
+    expect(over).toMatchObject({ phase: 'roundOver', finalist: 1 });
+  });
+
   it('a bankrupt there loses the whole kitty', () => {
     const state = stakeRound();
     const result = reduce(state, { type: 'spin', segmentIndex: 0, part: 'left' }, deps());

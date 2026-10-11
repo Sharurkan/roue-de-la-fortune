@@ -70,16 +70,16 @@ const PICKS: GameAction[] = [
 const rejection = (reason: string) => [{ type: 'actionRejected', reason }];
 
 describe('pickFinalist', () => {
-  it('picks the highest total', () => {
-    expect(pickFinalist([team('A', 100), team('B', 700), team('C', 300)], 0)).toBe(1);
+  it('picks the most money', () => {
+    expect(pickFinalist([100, 700, 300], 0)).toBe(1);
   });
 
   it('on a tie, picks the winner of the last round', () => {
-    expect(pickFinalist([team('A', 700), team('B', 700)], 1)).toBe(1);
+    expect(pickFinalist([700, 700], 1)).toBe(1);
   });
 
   it('on a tie without the last winner, picks the first tied team', () => {
-    expect(pickFinalist([team('A', 100), team('B', 700), team('C', 700)], 0)).toBe(1);
+    expect(pickFinalist([100, 700, 700], 0)).toBe(1);
   });
 });
 

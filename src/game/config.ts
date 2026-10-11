@@ -180,6 +180,7 @@ export const ROUND_COUNT = 4;
 /**
  * In this round, each team starts with its total as round score: the whole
  * kitty is at stake. Only the winner keeps money; the other teams end at 0.
+ * The team holding the most money when the phrase is found goes to the final.
  */
 export const STAKE_ROUND = 4;
 
