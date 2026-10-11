@@ -19,6 +19,17 @@ describe('rankTeams', () => {
       { team: 1, rank: 3 },
     ]);
   });
+
+  it('leaves out teams with nothing', () => {
+    expect(rankTeams([team(0), team(5000), team(0)])).toEqual([{ team: 1, rank: 1 }]);
+  });
+
+  it('keeps every team when nobody has anything', () => {
+    expect(rankTeams([team(0), team(0)])).toEqual([
+      { team: 0, rank: 1 },
+      { team: 1, rank: 1 },
+    ]);
+  });
 });
 
 describe('orderByRoundScore', () => {

@@ -5,11 +5,17 @@ export interface RankedTeam {
   rank: number;
 }
 
-/** Sorts by total score. Tied teams share the same rank (1, 1, 3). */
+/**
+ * Sorts by total score. Tied teams share the same rank (1, 1, 3).
+ * Teams with nothing are left out (after round 4 only the winner keeps money),
+ * unless no team has anything.
+ */
 export function rankTeams(teams: readonly Team[]): RankedTeam[] {
-  const sorted = teams
-    .map((team, index) => ({ index, score: team.totalScore }))
-    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const scored = teams.map((team, index) => ({ index, score: team.totalScore }));
+  const withMoney = scored.filter((entry) => entry.score > 0);
+  const sorted = (withMoney.length > 0 ? withMoney : scored).sort(
+    (a, b) => b.score - a.score || a.index - b.index,
+  );
   return sorted.map((entry) => ({
     team: entry.index,
     rank: 1 + sorted.filter((other) => other.score > entry.score).length,
